@@ -1,117 +1,101 @@
-"""
-ResumeIQ — Application Configuration
-Loads and validates all environment variables at import time.
-If a required variable is missing the app REFUSES to start with a clear error
-message naming the missing variable (Rule 6).
-"""
+"""Environment-backed application configuration."""
 
+import logging
 import os
-import sys
+from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import List
+from pathlib import Path
 
-from pydantic import field_validator, ValidationError
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
+
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(_BACKEND_DIR / ".env")
+load_dotenv(_BACKEND_DIR.parent / ".env")
+
+REQUIRED_ENV_VARS = (
+    "DATABASE_URL",
+    "GOOGLE_API_KEY",
+    "GOOGLE_CLOUD_PROJECT",
+    "MONGODB_MCP_SERVER_URL",
+    "MONGODB_ATLAS_URI",
+    "GOOGLE_DRIVE_CLIENT_ID",
+    "GOOGLE_DRIVE_CLIENT_SECRET",
+    "GOOGLE_DRIVE_REFRESH_TOKEN",
+)
 
 
-class Settings(BaseSettings):
-    """
-    Single source of truth for all configuration values.
-    pydantic-settings reads from the .env file automatically.
-    """
+def validate_env() -> None:
+    """Fail startup with an explicit list of missing required settings."""
+    missing = [name for name in REQUIRED_ENV_VARS if not os.environ.get(name)]
+    if not missing:
+        return
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore",          # silently ignore unrecognised keys in .env
+    for name in missing:
+        logger.critical("Missing required environment variable: %s", name)
+    raise RuntimeError(
+        "Server cannot start. Missing required env vars: "
+        f"{', '.join(missing)}. Copy .env.example to .env and fill in the values."
     )
 
-    # ---- Application -------------------------------------------
-    app_env: str = "development"
-    app_version: str = "0.1.0"
-    secret_key: str
 
-    # ---- PostgreSQL --------------------------------------------
-    database_url: str             # asyncpg DSN  — used at runtime
-    database_url_sync: str        # psycopg2 DSN — used by Alembic
-
-    # ---- Google / Gemini ---------------------------------------
-    google_api_key: str
-    gemini_model: str = "gemini-2.0-flash-exp"
-    google_cloud_project: str = ""
-    google_cloud_region: str = "us-central1"
-    google_application_credentials: str = ""
-
-    # ---- Google Cloud Agent Builder ----------------------------
-    agent_builder_agent_name: str = ""
-
-    # ---- MongoDB MCP Server ------------------------------------
-    mongodb_uri: str
-    mongodb_database: str = "resumeiq"
-    mcp_server_url: str = ""
-    mcp_api_key: str = ""
-
-    # ---- Google Drive ------------------------------------------
-    google_drive_client_id: str = ""
-    google_drive_client_secret: str = ""
-    google_drive_redirect_uri: str = "http://localhost:8000/auth/google/callback"
-
-    # ---- Rate Limiting -----------------------------------------
-    rate_limit_requests: int = 10
-    rate_limit_window_seconds: int = 3600
-
-    # ---- File Upload -------------------------------------------
-    max_file_size_mb: int = 5
-    allowed_extensions: str = "pdf,docx"
-
-    # ---- CORS --------------------------------------------------
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
-
-    # ---- Derived helpers ---------------------------------------
-    @property
-    def cors_origins_list(self) -> List[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
-
-    @property
-    def allowed_extensions_list(self) -> List[str]:
-        return [e.strip().lower() for e in self.allowed_extensions.split(",") if e.strip()]
+@dataclass(frozen=True)
+class Settings:
+    database_url: str = field(default_factory=lambda: os.environ.get("DATABASE_URL", ""))
+    google_api_key: str = field(default_factory=lambda: os.environ.get("GOOGLE_API_KEY", ""))
+    google_cloud_project: str = field(
+        default_factory=lambda: os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+    )
+    google_cloud_location: str = field(
+        default_factory=lambda: os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+    )
+    mongodb_mcp_server_url: str = field(
+        default_factory=lambda: os.environ.get("MONGODB_MCP_SERVER_URL", "")
+    )
+    mongodb_atlas_uri: str = field(
+        default_factory=lambda: os.environ.get("MONGODB_ATLAS_URI", "")
+    )
+    mongodb_database: str = field(
+        default_factory=lambda: os.environ.get("MONGODB_DATABASE", "resumeiq")
+    )
+    mongodb_collection: str = field(
+        default_factory=lambda: os.environ.get("MONGODB_COLLECTION", "analyses")
+    )
+    google_drive_client_id: str = field(
+        default_factory=lambda: os.environ.get("GOOGLE_DRIVE_CLIENT_ID", "")
+    )
+    google_drive_client_secret: str = field(
+        default_factory=lambda: os.environ.get("GOOGLE_DRIVE_CLIENT_SECRET", "")
+    )
+    google_drive_refresh_token: str = field(
+        default_factory=lambda: os.environ.get("GOOGLE_DRIVE_REFRESH_TOKEN", "")
+    )
+    rate_limit_post: str = field(
+        default_factory=lambda: os.environ.get("RATE_LIMIT_POST", "10/hour")
+    )
+    app_version: str = field(default_factory=lambda: os.environ.get("APP_VERSION", "0.1.0"))
+    max_file_size_mb: int = field(
+        default_factory=lambda: int(os.environ.get("MAX_FILE_SIZE_MB", "5"))
+    )
+    allowed_origins: list[str] = field(
+        default_factory=lambda: [
+            origin.strip()
+            for origin in os.environ.get(
+                "ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000"
+            ).split(",")
+            if origin.strip()
+        ]
+    )
 
     @property
     def max_file_size_bytes(self) -> int:
         return self.max_file_size_mb * 1024 * 1024
 
-    @field_validator("app_env")
-    @classmethod
-    def validate_env(cls, v: str) -> str:
-        allowed = {"development", "staging", "production"}
-        if v not in allowed:
-            raise ValueError(f"app_env must be one of {allowed}, got '{v}'")
-        return v
-
-
-def _load_settings() -> Settings:
-    """
-    Load settings and produce a human-readable error on missing variables.
-    The app will refuse to start — no cryptic tracebacks.
-    """
-    try:
-        return Settings()  # type: ignore[call-arg]
-    except ValidationError as exc:
-        missing = []
-        for error in exc.errors():
-            field = " → ".join(str(loc) for loc in error["loc"])
-            missing.append(f"  • {field.upper()}: {error['msg']}")
-        print(
-            "\n[ResumeIQ] ❌  STARTUP FAILED — Missing or invalid environment variables:\n"
-            + "\n".join(missing)
-            + "\n\nCopy .env.example → .env and fill in the required values.\n",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Cached singleton — call this everywhere instead of reading env directly."""
-    return _load_settings()
+    return Settings()
+
+
+settings = get_settings()
