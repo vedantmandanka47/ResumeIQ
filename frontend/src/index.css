@@ -1,85 +1,50 @@
 /* ============================================================
-   ResumeIQ — Global Design System
+   ResumeIQ — Global Design System (Strict Minimalism)
    All design tokens, resets, and utility classes live here.
    Component-specific styles go in their own .css files.
    ============================================================ */
 
-/* ---------- Google Fonts (loaded via index.html) ---------- */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono&display=swap');
+
 :root {
-  /* --- Colour Palette --- */
-  --color-bg:          #0a0a14;
-  --color-bg-elevated: #12121f;
-  --color-bg-card:     #1a1a2e;
-  --color-bg-glass:    rgba(255, 255, 255, 0.04);
+  /* Surfaces */
+  --surface-0: #FFFFFF;
+  --surface-1: #F7F7F6;
+  --surface-2: #EFEEEB;
 
-  --color-border:      rgba(255, 255, 255, 0.08);
-  --color-border-glow: rgba(99, 102, 241, 0.35);
+  /* Borders */
+  --border-subtle:  #E8E7E4;
+  --border-default: #D4D3CF;
 
-  --color-primary:     #6366f1;   /* indigo-500 */
-  --color-primary-dim: #4f46e5;   /* indigo-600 */
-  --color-primary-glow:rgba(99, 102, 241, 0.25);
+  /* Typography */
+  --text-primary:   #18181B;
+  --text-secondary: #71717A;
+  --text-muted:     #A1A1AA;
+  --text-inverse:   #FFFFFF;
 
-  --color-accent:      #a78bfa;   /* violet-400 */
-  --color-teal:        #2dd4bf;   /* teal-400 */
-  --color-amber:       #fbbf24;   /* amber-400 */
-  --color-rose:        #fb7185;   /* rose-400 */
-  --color-green:       #4ade80;   /* green-400 */
+  /* Semantic — used ONLY for status, never decoration */
+  --go:    #15803D;
+  --hold:  #B45309;
+  --rework:#B91C1C;
+  --link:  #1D4ED8;
 
-  --color-text:        #f1f5f9;   /* slate-100 */
-  --color-text-muted:  #94a3b8;   /* slate-400 */
-  --color-text-faint:  #475569;   /* slate-600 */
+  /* Score gradient stops (for rings and bars) */
+  --score-high: #15803D;
+  --score-mid:  #B45309;
+  --score-low:  #B91C1C;
 
-  /* --- Status Colours --- */
-  --status-ok:    #4ade80;
-  --status-warn:  #fbbf24;
-  --status-error: #fb7185;
-  --status-idle:  #94a3b8;
+  /* Motion */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
 
-  /* --- Typography --- */
-  --font-body:    'Inter', system-ui, sans-serif;
-  --font-display: 'Outfit', system-ui, sans-serif;
-
-  --text-xs:   0.75rem;
-  --text-sm:   0.875rem;
-  --text-base: 1rem;
-  --text-lg:   1.125rem;
-  --text-xl:   1.25rem;
-  --text-2xl:  1.5rem;
-  --text-3xl:  1.875rem;
-  --text-4xl:  2.25rem;
-  --text-5xl:  3rem;
-
-  /* --- Spacing --- */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-10: 2.5rem;
-  --space-12: 3rem;
-  --space-16: 4rem;
-  --space-20: 5rem;
-
-  /* --- Border Radius --- */
-  --radius-sm:  0.375rem;
-  --radius-md:  0.625rem;
-  --radius-lg:  1rem;
-  --radius-xl:  1.5rem;
+  /* Radius */
+  --radius-sm:   4px;
+  --radius-md:   6px;
   --radius-full: 9999px;
 
-  /* --- Shadows --- */
-  --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md:   0 4px 16px rgba(0,0,0,0.5);
-  --shadow-lg:   0 8px 32px rgba(0,0,0,0.6);
-  --shadow-glow: 0 0 24px rgba(99, 102, 241, 0.3);
-
-  /* --- Transitions --- */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --duration-fast:   150ms;
-  --duration-normal: 250ms;
-  --duration-slow:   400ms;
+  /* Shadow — the ONE permitted shadow */
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 /* ---------- Reset & Base ---------------------------------------- */
@@ -96,10 +61,10 @@ html {
 }
 
 body {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--color-text);
-  background-color: var(--color-bg);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  color: var(--text-primary);
+  background: var(--surface-0);
   line-height: 1.6;
   min-height: 100vh;
 }
@@ -112,113 +77,130 @@ body {
 
 /* ---------- Typography ------------------------------------------ */
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
-  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
   line-height: 1.2;
-  letter-spacing: -0.02em;
 }
 
+.text-xs  { font-size: 11px; }
+.text-sm  { font-size: 13px; }
+.text-base{ font-size: 15px; }
+.text-lg  { font-size: 17px; }
+.text-xl  { font-size: 20px; }
+.text-2xl { font-size: 26px; }
+.text-3xl { font-size: 34px; }
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.mono {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+}
+
+/* ---------- Utilities ------------------------------------------- */
+.text-primary   { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.mt-4  { margin-top: 16px; }
+.mt-8  { margin-top: 32px; }
+.mt-12 { margin-top: 48px; }
+.mb-4  { margin-bottom: 16px; }
+.mb-8  { margin-bottom: 32px; }
+.pt-8  { padding-top: 32px; }
+.border-t { border-top: 1px solid var(--border-subtle); }
+
+/* ---------- Links ----------------------------------------------- */
 a {
-  color: var(--color-primary);
+  color: var(--link);
   text-decoration: none;
-  transition: color var(--duration-fast) var(--ease-out);
+  transition: opacity var(--duration-fast) var(--ease);
 }
-a:hover { color: var(--color-accent); }
+a:hover { opacity: 0.8; }
 
-code, pre {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.9em;
-}
-
-/* ---------- Scrollbar ------------------------------------------- */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--color-bg); }
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: var(--radius-full);
-}
-::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
-
-/* ---------- Glass Card Utility ---------------------------------- */
-.card {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  transition: border-color var(--duration-normal) var(--ease-out),
-              box-shadow var(--duration-normal) var(--ease-out);
-}
-.card:hover {
-  border-color: var(--color-border-glow);
-  box-shadow: var(--shadow-glow);
-}
-
-.glass {
-  background: var(--color-bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--color-border);
-}
-
-/* ---------- Button Styles --------------------------------------- */
+/* ---------- Buttons --------------------------------------------- */
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
   border-radius: var(--radius-md);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   border: none;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: background-color var(--duration-fast) var(--ease),
+              border-color var(--duration-fast) var(--ease),
+              opacity var(--duration-fast) var(--ease);
   text-decoration: none;
+  line-height: 1.4;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dim));
-  color: #fff;
-  box-shadow: 0 0 0 0 var(--color-primary-glow);
+  background: var(--text-primary);
+  color: var(--text-inverse);
 }
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px var(--color-primary-glow);
-}
-.btn-primary:active { transform: translateY(0); }
-
-.btn-ghost {
-  background: transparent;
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-}
-.btn-ghost:hover {
-  background: var(--color-bg-glass);
-  color: var(--color-text);
-  border-color: var(--color-border-glow);
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.85;
 }
 
-/* ---------- Badge ----------------------------------------------- */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.btn-secondary {
+  background: var(--surface-0);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
 }
-.badge-ok    { background: rgba(74,222,128,0.15); color: var(--status-ok);    border: 1px solid rgba(74,222,128,0.3);  }
-.badge-warn  { background: rgba(251,191,36,0.15);  color: var(--status-warn);  border: 1px solid rgba(251,191,36,0.3);  }
-.badge-error { background: rgba(251,113,133,0.15); color: var(--status-error); border: 1px solid rgba(251,113,133,0.3); }
-.badge-idle  { background: rgba(148,163,184,0.15); color: var(--status-idle);  border: 1px solid rgba(148,163,184,0.3); }
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-1);
+  border-color: var(--text-primary);
+}
 
-/* ---------- Loading Pulse --------------------------------------- */
+.btn-text {
+  background: none;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  border: none;
+}
+.btn-text:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+/* ---------- Layout ---------------------------------------------- */
+.container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.container--wide {
+  max-width: 1080px;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.page {
+  flex: 1;
+  padding: 48px 0;
+}
+
+/* ---------- Animations ------------------------------------------ */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
+  50%      { opacity: 0.4; }
 }
 .pulse { animation: pulse 1.8s ease-in-out infinite; }
 
@@ -227,29 +209,18 @@ code, pre {
 }
 .spin { animation: spin 0.8s linear infinite; }
 
-/* ---------- Gradient Mesh Background --------------------------- */
-.gradient-mesh {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 80% 60% at 20% 10%,  rgba(99,102,241,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 80%,  rgba(167,139,250,0.10) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 50% 50%,  rgba(45,212,191,0.05) 0%, transparent 50%);
+.skeleton {
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  animation: pulse 1.8s ease-in-out infinite;
 }
 
-/* ---------- Container / Layout --------------------------------- */
-.container {
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 var(--space-6);
+/* ---------- Responsive ------------------------------------------ */
+@media (max-width: 768px) {
+  .container { padding: 0 16px; }
+  .page { padding: 32px 0; }
 }
 
-.page {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  padding: var(--space-8) 0;
+@media (max-width: 480px) {
+  .page { padding: 24px 0; }
 }
