@@ -1,0 +1,47 @@
+# ============================================================
+# ResumeIQ — Backend Requirements
+# Phase 0 baseline — updated per phase
+# All versions pinned. No floating versions.
+# ============================================================
+
+# ----- Web Framework ----------------------------------------
+fastapi==0.115.5
+uvicorn[standard]==0.32.1          # ASGI server with websocket + reload support
+
+# ----- Database (PostgreSQL) --------------------------------
+sqlalchemy==2.0.36                 # ORM — async-capable
+asyncpg==0.30.0                    # Async PostgreSQL driver for SQLAlchemy async
+psycopg2-binary==2.9.10            # Sync driver used by Alembic for migrations
+alembic==1.14.0                    # Database migrations
+
+# ----- Environment & Config ---------------------------------
+python-dotenv==1.0.1               # Loads .env into os.environ on startup
+pydantic==2.10.3                   # Data validation (FastAPI uses this internally)
+pydantic-settings==2.6.1           # Settings management with env var support
+
+# ----- Google / Gemini LLM ----------------------------------
+google-generativeai==0.8.3         # Top-level Gemini SDK — Rule 2: general-level import
+google-auth==2.37.0                # GCP authentication
+google-auth-oauthlib==1.2.1        # OAuth2 flow for Drive export
+google-api-python-client==2.155.0  # Google Drive REST API client
+
+# ----- HTTP Client (for MCP calls and web requests) ---------
+httpx==0.28.1                      # Async-capable HTTP client
+aiohttp==3.11.10                   # Async HTTP — used for MCP server communication
+
+# ----- File Parsing (Phase 1) --------------------------------
+pypdf2==3.0.1                      # PDF text extraction
+python-docx==1.1.2                 # DOCX parsing
+python-multipart==0.0.17           # FastAPI multipart/form-data support
+
+# ----- Rate Limiting ----------------------------------------
+slowapi==0.1.9                     # Rate limiting middleware for FastAPI
+
+# ----- MongoDB (direct driver — backup for non-MCP queries) --
+motor==3.6.0                       # Async MongoDB driver (PyMongo async wrapper)
+pymongo==4.10.1                    # Sync MongoDB driver (required by motor)
+
+# ----- Utilities --------------------------------------------
+python-jose[cryptography]==3.3.0   # JWT tokens (for session management)
+uuid==1.30                         # UUID generation — also in stdlib but pinned here
+python-dateutil==2.9.0.post0       # Date parsing utilities
