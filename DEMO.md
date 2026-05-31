@@ -4,7 +4,7 @@ Follow these steps to run ResumeIQ locally from scratch.
 
 ## 1. Environment Setup
 
-Use Python 3.11 or 3.12 with the pinned backend dependencies.
+Use Python 3.12 with the pinned backend dependencies.
 
 1. Copy the example config:
    ```bash
@@ -27,8 +27,9 @@ of the backend API contract.
 1. Start your local PostgreSQL server.
 2. In the `backend/` directory, set up your Python virtual environment and install dependencies:
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   py -3.12 -m venv .venv  # Windows
+   source .venv/bin/activate  # macOS/Linux
+   .\.venv\Scripts\Activate.ps1  # Windows PowerShell
    pip install -r requirements.txt
    ```
 3. Run Alembic migrations to create the tables (once configured):
