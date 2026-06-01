@@ -24,6 +24,32 @@ def _build_company_instruction(company_name: str | None) -> str:
 
 
 def _derive_changes(pass1: dict[str, Any], pass2: dict[str, Any]) -> list[dict[str, str]]:
+    specific_changes = pass2.get("specific_changes", [])
+    if isinstance(specific_changes, list):
+        normalized = []
+        for change in specific_changes:
+            if not isinstance(change, dict):
+                continue
+            before = str(change.get("before", "")).strip()
+            after = str(change.get("after", "")).strip()
+            reason = str(change.get("reason", "")).strip()
+            section = str(change.get("section", "resume")).strip() or "resume"
+            change_type = str(change.get("change_type", "improved")).strip() or "improved"
+            if before or after or reason:
+                normalized.append(
+                    {
+                        "section": section,
+                        "change_type": change_type,
+                        "before": before,
+                        "after": after,
+                        "reason": reason,
+                        "description": reason
+                        or f"Updated {section} from {before!r} to {after!r}.",
+                    }
+                )
+        if normalized:
+            return normalized
+
     changes: list[dict[str, str]] = []
     for section in pass1.get("sections_rewritten", []):
         changes.append(
@@ -50,6 +76,9 @@ def _derive_changes(pass1: dict[str, Any], pass2: dict[str, Any]) -> list[dict[s
             {
                 "section": "bullets",
                 "change_type": "restructured",
+                "before": str(_fix.get("original_bullet", "")) if isinstance(_fix, dict) else "",
+                "after": str(_fix.get("fixed_bullet", "")) if isinstance(_fix, dict) else "",
+                "reason": "Made a vague bullet more specific using source details.",
                 "description": "Made a vague bullet more specific using source details.",
             }
         )
@@ -62,6 +91,10 @@ def _frontend_change_log(changes: list[dict[str, str]]) -> list[dict[str, str]]:
         {
             "type": type_map.get(change.get("change_type", ""), "modification"),
             "description": change.get("description", ""),
+            "section": change.get("section", ""),
+            "before": change.get("before", ""),
+            "after": change.get("after", ""),
+            "reason": change.get("reason", change.get("description", "")),
         }
         for change in changes
     ]
@@ -83,8 +116,10 @@ def _rewrite_payload(
         "original_text_preview": raw_text,
         "rewritten_text_preview": rewritten_text,
         "changes": changes,
+        "changes_json": changes,
         "change_log": _frontend_change_log(changes),
         "authenticity": authenticity,
+        "authenticity_json": authenticity,
         "authenticity_flags": authenticity.get("authenticity_flags", []),
         "vague_bullets_fixed": authenticity.get("vague_bullets_fixed", []),
         "personal_details_preserved": authenticity.get("personal_details_preserved", True),

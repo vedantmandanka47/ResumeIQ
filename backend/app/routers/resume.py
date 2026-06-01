@@ -30,6 +30,7 @@ from app.schemas.company import CompanyAnalysisRequest
 from app.schemas.rewrite import RewriteRequest
 from app.schemas.upload import SessionResponse, UploadResponse
 from app.services.agent_gateway import invoke
+from app.services.docx_builder import build_resume_docx
 from app.services.parser import extract_text_from_docx, extract_text_from_pdf
 
 logger = logging.getLogger(__name__)
@@ -326,6 +327,22 @@ async def download_rewrite(
         io.BytesIO(rewrite.rewritten_text.encode("utf-8")),
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="rewritten_resume.txt"'},
+    )
+
+
+@router.get("/{session_id}/rewrite/download/docx", response_model=None)
+async def download_rewrite_docx(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse | JSONResponse:
+    rewrite = await _get_latest(db, RewriteResult, session_id)
+    if rewrite is None:
+        return _error(404, "Rewrite not found", "REWRITE_NOT_FOUND")
+    docx_bytes = await run_in_threadpool(build_resume_docx, rewrite.rewritten_text)
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="rewritten_resume.docx"'},
     )
 
 
