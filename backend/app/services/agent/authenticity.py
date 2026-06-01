@@ -1,0 +1,61 @@
+"""Authenticity rules injected into the second rewrite pass."""
+
+AUTHENTICITY_BLACKLIST: list[str] = [
+    "spearheaded",
+    "leveraged",
+    "championed",
+    "pioneered",
+    "orchestrated",
+    "architected",
+    "drove alignment",
+    "drove impact",
+    "dynamic professional",
+    "results-driven",
+    "passionate about",
+    "proven track record",
+    "detail-oriented",
+    "self-starter",
+    "go-getter",
+    "team player",
+    "hard worker",
+    "proactive",
+    "strategic thinker",
+    "visionary",
+    "synergies",
+    "thought leader",
+    "innovative solutions",
+    "cutting-edge",
+    "best-in-class",
+    "world-class",
+    "mission-critical",
+    "value-add",
+    "transformative",
+    "impactful",
+    "scalable solutions",
+    "robust",
+    "seamlessly",
+    "actionable insights",
+    "move the needle",
+    "circle back",
+    "deep dive",
+    "bandwidth",
+    "deliverables",
+    "stakeholder management",
+    "cross-functional synergy",
+    "exceeded expectations",
+    "various stakeholders",
+    "in a fast-paced environment",
+    "strong communication skills",
+    "excellent interpersonal skills",
+    "attention to detail",
+    "results-oriented",
+    "highly motivated",
+]
+
+
+def format_blacklist_for_prompt(
+    blacklist: list[str] = AUTHENTICITY_BLACKLIST,
+) -> str:
+    """Format phrases as an explicit numbered list for prompt injection."""
+    return "\n".join(f"{index}. {phrase}" for index, phrase in enumerate(blacklist, start=1))
+
