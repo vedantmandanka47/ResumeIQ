@@ -1,12 +1,9 @@
-"""
-ResumeIQ — PostgreSQL Database Connection Module
-Uses SQLAlchemy 2.x async engine + asyncpg driver.
-All DB operations in the project go through the session factory here.
-"""
+"""Async SQLAlchemy connection management."""
 
 import logging
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -14,90 +11,79 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import text
 
-from app.config import get_settings
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
-    """
-    Shared declarative base for all SQLAlchemy models.
-    Import this in every models file and inherit from it.
-    """
     pass
 
 
-# ---------- Engine & Session Factory ----------------------------------------
-
-def _build_engine() -> AsyncEngine:
-    settings = get_settings()
-    return create_async_engine(
-        settings.database_url,
-        echo=(settings.app_env == "development"),   # log SQL in dev only
-        pool_pre_ping=True,                          # detect stale connections
-        pool_size=10,
-        max_overflow=20,
-    )
+_engine: AsyncEngine | None = None
+_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
-# Module-level singletons created once at import time
-engine: AsyncEngine = _build_engine()
+def get_engine() -> AsyncEngine:
+    """Create the engine lazily so missing env vars fail in startup validation."""
+    global _engine
+    if _engine is None:
+        if not settings.database_url:
+            raise RuntimeError("DATABASE_URL is not configured")
+        _engine = create_async_engine(
+            settings.database_url,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True,
+            echo=False,
+        )
+    return _engine
 
-AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
-    bind=engine,
-    expire_on_commit=False,   # allow attribute access after commit
-    autoflush=False,
-    autocommit=False,
-)
 
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    global _session_factory
+    if _session_factory is None:
+        _session_factory = async_sessionmaker(
+            bind=get_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autocommit=False,
+            autoflush=False,
+        )
+    return _session_factory
 
-# ---------- FastAPI Dependency ----------------------------------------------
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Yields an async DB session for use as a FastAPI dependency.
-    Rolls back on exception and always closes the session.
-
-    Usage:
-        @app.get("/example")
-        async def example(db: AsyncSession = Depends(get_db)):
-            ...
-    """
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+    """Yield a request-scoped database session."""
+    async with get_session_factory()() as session:
+        yield session
 
 
-# ---------- Health Check Helper ---------------------------------------------
-
-async def check_db_connection() -> dict:
-    """
-    Runs a minimal SELECT 1 query to verify the DB is reachable.
-    Returns a dict suitable for the /health/db endpoint.
-    """
+async def init_db() -> None:
+    """Confirm database connectivity. Schema changes are managed by Alembic."""
     try:
-        async with AsyncSessionLocal() as session:
-            await session.execute(text("SELECT 1"))
-        logger.info("Database health check: OK")
+        async with get_engine().connect() as connection:
+            await connection.execute(text("SELECT 1"))
+        logger.info("Database connection established successfully.")
+    except Exception as exc:
+        logger.critical("Cannot connect to database: %s", exc)
+        raise
+
+
+async def check_db_connection() -> dict[str, str]:
+    try:
+        async with get_engine().connect() as connection:
+            await connection.execute(text("SELECT 1"))
         return {"db": "connected"}
     except Exception as exc:
         logger.error("Database health check failed: %s", exc)
         return {"db": "error", "detail": str(exc)}
 
 
-# ---------- Table Initialisation (dev helper) --------------------------------
-
-async def init_db() -> None:
-    """
-    Creates all tables that exist in the metadata.
-    Used in development; production should use Alembic migrations instead.
-    """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables initialised.")
+async def dispose_db() -> None:
+    global _engine, _session_factory
+    if _engine is not None:
+        await _engine.dispose()
+    _engine = None
+    _session_factory = None

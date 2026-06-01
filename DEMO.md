@@ -4,11 +4,23 @@ Follow these steps to run ResumeIQ locally from scratch.
 
 ## 1. Environment Setup
 
+Use Python 3.11 or 3.12 with the pinned backend dependencies.
+
 1. Copy the example config:
    ```bash
    cp .env.example .env
    ```
 2. Fill in the required variables in `.env` (PostgreSQL credentials, Google Gemini API key, MongoDB MCP URL, etc.).
+
+### MongoDB Setup
+
+Use a MongoDB Atlas cluster and set `MONGODB_ATLAS_URI`. A local MongoDB
+Community Server download is not required when Atlas is used. MongoDB Compass
+is optional and is useful only as a desktop GUI for inspecting stored data.
+
+Set `MONGODB_MCP_SERVER_URL` to the MCP server used by the separately owned
+agent service. MongoDB save, history, benchmark, and health calls remain part
+of the backend API contract.
 
 ## 2. Database Initialisation
 
@@ -46,8 +58,11 @@ The React app will be available at `http://localhost:5173`.
 
 ### Phase 0: Health Checks
 ```bash
-curl http://localhost:8000/health/all
+curl http://localhost:8000/health
+curl http://localhost:8000/health/db
+curl http://localhost:8000/health/llm
+curl http://localhost:8000/health/mcp
 ```
-*Expected: 200 OK with status of app, db, llm, and mcp connections.*
+*Expected: each configured service responds with its own structured status.*
 
 *(Further phase commands will be added here as the application progresses.)*
