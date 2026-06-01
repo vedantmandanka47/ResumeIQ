@@ -1,0 +1,138 @@
+.upload-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.upload-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.upload-header h1 {
+  margin-bottom: 12px;
+}
+
+.upload-header p {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.upload-container {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* DropZone */
+.drop-zone {
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--surface-0);
+  transition: all var(--duration-base) var(--ease);
+}
+
+.drop-zone--active, .drop-zone:hover {
+  border-color: var(--text-primary);
+  background: var(--surface-1);
+}
+
+.drop-zone__icon {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.drop-zone__title {
+  font-weight: 500;
+  font-size: var(--text-base);
+  margin-bottom: 4px;
+}
+
+.drop-zone__caption {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* FileChip */
+.file-chip {
+  display: flex;
+  align-items: center;
+  background: var(--surface-1);
+  border-radius: var(--radius-full);
+  padding: 8px 12px 8px 16px;
+  gap: 12px;
+}
+
+.file-chip__icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.file-chip__info {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.file-chip__name {
+  font-weight: 500;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-chip__size {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.file-chip__remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: var(--radius-full);
+}
+.file-chip__remove:hover {
+  color: var(--text-primary);
+  background: var(--border-subtle);
+}
+
+/* TextPreview */
+.text-preview__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.text-preview__content {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 24px;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.text-preview__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.upload-error {
+  max-width: 500px;
+  margin: 24px auto 0;
+}

@@ -8,16 +8,12 @@
     "dev": "vite --port 5173",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-router-dom": "6.27.0",
-    "axios": "1.7.9",
-    "recharts": "2.13.3",
-    "react-dropzone": "14.3.5",
-    "lucide-react": "0.468.0"
+    "react-router-dom": "6.27.0"
   },
   "devDependencies": {
     "@types/react": "18.3.14",
