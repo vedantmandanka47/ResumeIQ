@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.database import check_db_connection
 from app.services.agent_gateway import invoke
+from app.services.health_utils import normalize_service_health
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/health", tags=["health"])
@@ -21,7 +22,12 @@ async def health_root() -> dict[str, str]:
 @router.get("/db")
 async def health_db() -> JSONResponse:
     result = await check_db_connection()
-    return JSONResponse(status_code=200 if result.get("db") == "connected" else 503, content=result)
+    if result.get("db") == "connected":
+        return JSONResponse(status_code=200, content={"db": "connected"})
+    return JSONResponse(
+        status_code=503,
+        content={"db": "error", "detail": result.get("detail", "Database unavailable")},
+    )
 
 
 @router.get("/llm")
@@ -31,7 +37,11 @@ async def health_llm() -> JSONResponse:
     except Exception as exc:
         logger.error("LLM health check failed: %s", exc)
         result = {"llm": "error", "detail": str(exc)}
-    return JSONResponse(status_code=503 if result.get("llm") == "error" else 200, content=result)
+    normalized = normalize_service_health("llm", result)
+    return JSONResponse(
+        status_code=503 if normalized.get("llm") == "error" else 200,
+        content=normalized,
+    )
 
 
 @router.get("/mcp")
@@ -41,4 +51,8 @@ async def health_mcp() -> JSONResponse:
     except Exception as exc:
         logger.error("MCP health check failed: %s", exc)
         result = {"mcp": "error", "detail": str(exc)}
-    return JSONResponse(status_code=503 if result.get("mcp") == "error" else 200, content=result)
+    normalized = normalize_service_health("mcp", result)
+    return JSONResponse(
+        status_code=503 if normalized.get("mcp") == "error" else 200,
+        content=normalized,
+    )

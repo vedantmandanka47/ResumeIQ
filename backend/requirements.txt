@@ -15,3 +15,5 @@ google-genai==2.6.0
 google-cloud-aiplatform==1.57.0
 pymongo==4.17.0
 requests==2.32.3
+docxtpl==0.16.8
+docx2pdf==0.1.8

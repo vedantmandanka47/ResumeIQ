@@ -6,6 +6,7 @@ import UploadPage from './pages/UploadPage';
 import AnalysisPage from './pages/AnalysisPage';
 import RewritePage from './pages/RewritePage';
 import RoadmapPage from './pages/RoadmapPage';
+import GeneratePage from './pages/GeneratePage';
 import { AnalysisProvider } from './hooks/useAnalysis';
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
               <Route path="/status" element={<StatusPage />} />
               <Route path="/analysis/:sessionId" element={<AnalysisPage />} />
               <Route path="/rewrite/:sessionId" element={<RewritePage />} />
+              <Route path="/generate/:sessionId" element={<GeneratePage />} />
               <Route path="/roadmap/:sessionId" element={<RoadmapPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

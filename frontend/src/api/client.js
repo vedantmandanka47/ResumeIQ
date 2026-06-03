@@ -6,6 +6,23 @@
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '';
 
+async function parseApiError(res) {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const err = await res.json().catch(() => ({}));
+    return {
+      message: err.detail || err.error || `Request failed (${res.status})`,
+      code: err.code || String(res.status),
+    };
+  }
+  const text = await res.text().catch(() => '');
+  const trimmed = text.trim();
+  return {
+    message: trimmed || `Request failed (${res.status})`,
+    code: String(res.status),
+  };
+}
+
 async function request(method, path, body, isFile = false) {
   const opts = { method, headers: {} };
 
@@ -21,9 +38,9 @@ async function request(method, path, body, isFile = false) {
   const res = await fetch(`${BASE}${path}`, opts);
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const error = new Error(err.detail || err.error || `Request failed (${res.status})`);
-    error.code = err.code || String(res.status);
+    const { message, code } = await parseApiError(res);
+    const error = new Error(message);
+    error.code = code;
     throw error;
   }
 
@@ -34,11 +51,27 @@ function GET(path)              { return request('GET', path); }
 function POST(path, body)       { return request('POST', path, body); }
 function POST_FILE(path, file)  { return request('POST', path, file, true); }
 
+async function POST_BINARY(path, body) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const { message, code } = await parseApiError(res);
+    const error = new Error(message);
+    error.code = code;
+    throw error;
+  }
+  return res.arrayBuffer();
+}
+
 async function DOWNLOAD(path) {
   const res = await fetch(`${BASE}${path}`);
   if (!res.ok) {
-    const error = new Error('Download failed');
-    error.code = String(res.status);
+    const { message, code } = await parseApiError(res);
+    const error = new Error(message);
+    error.code = code;
     throw error;
   }
   const blob = await res.blob();
@@ -77,5 +110,24 @@ export const api = {
     history:         (id)        => GET(`/resume/${id}/history`),
     benchmark:       ()          => GET('/resume/benchmark'),
     exportDrive:     (id)        => POST(`/resume/${id}/export/drive`, {}),
+    templates:       ()          => GET('/resume/templates'),
+    renderDocx:      (resumeData, templateId) =>
+      POST_BINARY('/resume/render', { resume_data: resumeData, template_id: templateId }),
+    renderDocxDownload: (resumeData, templateId) =>
+      POST_BINARY('/resume/render/download', { resume_data: resumeData, template_id: templateId }),
+    structuredResume: (id) => GET(`/resume/${id}/structured-resume`),
+  },
+  generation: {
+    templates:       ()          => GET('/templates'),
+    generate:        (body)      => POST('/generate', {
+      session_id: body.session_id,
+      template_id: body.template_id ?? null,
+      job_description: body.job_description ?? null,
+      rewrite_instructions: body.rewrite_instructions ?? null,
+    }),
+    changeTemplate:  (body)      => POST('/change-template', body),
+    downloadDocx:    (id)        => DOWNLOAD(`/download/${id}?format=docx`),
+    downloadPdf:     (id)        => DOWNLOAD(`/download/${id}?format=pdf`),
+    previewUrl:      (id)        => `${BASE}/preview/${id}`,
   },
 };

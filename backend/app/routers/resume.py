@@ -9,9 +9,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -24,7 +25,10 @@ from app.models import (
     ResumeSession,
     RewriteResult,
     RoadmapResult,
+    StructuredResume,
 )
+from app.services.resume_generation import _resume_source_text
+from app.services.resume_hash import hash_resume_content
 from app.schemas.analysis import AnalysisRequest
 from app.schemas.company import CompanyAnalysisRequest
 from app.schemas.rewrite import RewriteRequest
@@ -32,9 +36,65 @@ from app.schemas.upload import SessionResponse, UploadResponse
 from app.services.agent_gateway import invoke
 from app.services.docx_builder import build_resume_docx
 from app.services.parser import extract_text_from_docx, extract_text_from_pdf
+from app.services.template_engine import list_templates as list_docx_templates
+from app.services.template_engine import render_resume as render_resume_docx
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/resume", tags=["resume"])
+
+
+class ResumeRenderRequest(BaseModel):
+    resume_data: dict
+    template_id: str = "minimalist"
+
+
+@router.get("/templates")
+async def get_templates() -> list[dict]:
+    """Return available DOCX templates for the template switcher."""
+    return await run_in_threadpool(list_docx_templates)
+
+
+@router.post("/render", response_model=None)
+async def render_resume_endpoint(req: ResumeRenderRequest):
+    """Render a DOCX resume from structured JSON (no Gemini call)."""
+    try:
+        docx_bytes = await run_in_threadpool(render_resume_docx, req.resume_data, req.template_id)
+    except FileNotFoundError as exc:
+        return _error(404, str(exc), "TEMPLATE_NOT_FOUND")
+    except ValueError as exc:
+        return _error(422, str(exc), "RENDER_VALIDATION_FAILED")
+    except Exception as exc:
+        logger.error("DOCX render failed: %s", exc, exc_info=True)
+        return _error(500, f"Rendering failed: {exc}", "RENDER_FAILED")
+
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": 'inline; filename="resume.docx"',
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@router.post("/render/download", response_model=None)
+async def download_resume_endpoint(req: ResumeRenderRequest):
+    """Render a DOCX resume and return it as a download."""
+    try:
+        docx_bytes = await run_in_threadpool(render_resume_docx, req.resume_data, req.template_id)
+    except FileNotFoundError as exc:
+        return _error(404, str(exc), "TEMPLATE_NOT_FOUND")
+    except ValueError as exc:
+        return _error(422, str(exc), "RENDER_VALIDATION_FAILED")
+    except Exception as exc:
+        logger.error("DOCX render download failed: %s", exc, exc_info=True)
+        return _error(500, f"Rendering failed: {exc}", "RENDER_FAILED")
+
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="resume.docx"'},
+    )
 
 
 def _error(status_code: int, message: str, code: str) -> JSONResponse:
@@ -179,6 +239,36 @@ async def get_benchmark() -> dict[str, Any] | JSONResponse:
     if error := _agent_error(result, "BENCHMARK_FAILED", "Failed to retrieve benchmark data"):
         return error
     return result
+
+
+@router.get("/{session_id}/structured-resume", response_model=None)
+async def get_structured_resume(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object] | JSONResponse:
+    """Return cached canonical structured resume JSON for template preview."""
+    session = await _get_session(db, session_id)
+    if session is None:
+        return _error(404, "Session not found", "SESSION_NOT_FOUND")
+
+    resume_hash = hash_resume_content(await _resume_source_text(db, session))
+    try:
+        statement = select(StructuredResume).where(StructuredResume.resume_hash == resume_hash)
+        structured = (await db.execute(statement)).scalar_one_or_none()
+    except ProgrammingError as exc:
+        logger.error("Structured resume lookup failed (schema): %s", exc)
+        return _error(
+            503,
+            "Structured resume storage is not ready. Run database migrations (alembic upgrade head).",
+            "STRUCTURED_RESUME_SCHEMA_MISSING",
+        )
+    except SQLAlchemyError as exc:
+        logger.error("Structured resume lookup failed: %s", exc)
+        return _error(503, "Database read failed", "DATABASE_READ_FAILED")
+
+    if structured is None:
+        return _error(404, "Structured resume not found", "STRUCTURED_RESUME_NOT_FOUND")
+    return {"resume_data": structured.structured_resume_json}
 
 
 @router.get("/{session_id}", response_model=SessionResponse)

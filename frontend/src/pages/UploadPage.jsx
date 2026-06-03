@@ -25,6 +25,7 @@ export default function UploadPage() {
   
   // Analyze state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // --- Drag events ---
   const handleDragEnter = useCallback((e) => {
@@ -99,6 +100,12 @@ export default function UploadPage() {
     navigate(`/analysis/${uploadResult.session_id}`);
   };
 
+  const handleGenerateSubmit = () => {
+    if (!uploadResult?.session_id) return;
+    setIsGenerating(true);
+    navigate(`/generate/${uploadResult.session_id}`);
+  };
+
   return (
     <div className="page upload-page">
       <div className="container">
@@ -136,8 +143,10 @@ export default function UploadPage() {
             <TextPreview 
               text={uploadResult.preview} 
               onConfirm={handleAnalyzeSubmit} 
+              onGenerate={handleGenerateSubmit}
               onReset={handleReset}
               isAnalyzing={isAnalyzing}
+              isGenerating={isGenerating}
             />
           )}
         </div>

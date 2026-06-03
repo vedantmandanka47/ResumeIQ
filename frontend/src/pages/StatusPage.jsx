@@ -43,21 +43,34 @@ export default function StatusPage() {
       SERVICES_CONFIG.reduce((acc, s) => ({ ...acc, [s.key]: { state: 'loading', message: '' } }), {})
     );
 
+    const isConnected = (value) => {
+      const normalized = String(value ?? '').toLowerCase();
+      return normalized === 'connected' || normalized === 'ready' || normalized === 'ok';
+    };
+
     const promises = SERVICES_CONFIG.map(async (svc) => {
       try {
         const data = await api.health[svc.key]();
         let state = 'ok';
         let message = 'Connected';
-        
-        // Detailed checks per service
-        if (svc.key === 'app' && data.status !== 'ok') state = 'error';
-        if (svc.key === 'db' && data.db !== 'connected') state = 'error';
-        if (svc.key === 'llm' && data.llm !== 'connected') state = 'error';
-        if (svc.key === 'mcp' && data.mcp !== 'connected') state = 'error';
 
-        if (state === 'error') message = data.detail || 'Service degraded';
-        else if (svc.key === 'app' && data.version) message = `Version ${data.version}`;
-        else if (svc.key === 'llm' && data.model) message = `Model: ${data.model}`;
+        if (svc.key === 'app') {
+          if (!isConnected(data.status)) state = 'error';
+        } else if (svc.key === 'db') {
+          if (!isConnected(data.db)) state = 'error';
+        } else if (svc.key === 'llm') {
+          if (!isConnected(data.llm)) state = 'error';
+        } else if (svc.key === 'mcp') {
+          if (!isConnected(data.mcp)) state = 'error';
+        }
+
+        if (state === 'error') {
+          message = data.detail || data.error || 'Service degraded';
+        } else if (svc.key === 'app' && data.version) {
+          message = `Version ${data.version}`;
+        } else if (svc.key === 'llm' && data.model) {
+          message = `Model: ${data.model}`;
+        }
 
         return { key: svc.key, state, message };
       } catch (err) {

@@ -1,0 +1,61 @@
+.generate-page--loading {
+  min-height: 55vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.generate-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.generate-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.template-picker {
+  display: grid;
+  gap: 6px;
+  min-width: 240px;
+  font-weight: 600;
+}
+
+.template-picker select {
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: white;
+  color: inherit;
+}
+
+.generate-status {
+  color: var(--text-secondary, #64748b);
+  flex: 1;
+}
+
+.generate-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preview-shell {
+  padding: 0;
+  overflow: hidden;
+}
+
+.preview-frame {
+  width: 100%;
+  min-height: 78vh;
+  border: 0;
+  background: #f8fafc;
+}

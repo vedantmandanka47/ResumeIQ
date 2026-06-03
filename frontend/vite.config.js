@@ -16,6 +16,26 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      '/templates': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/generate': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/change-template': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/download': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/preview': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/auth': {
         target: 'http://localhost:8000',
         changeOrigin: true,

@@ -11,7 +11,11 @@ from google.genai import types
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+DEFAULT_MODEL = (
+    os.environ.get("GEMINI_RESUME_MODEL")
+    or os.environ.get("GEMINI_MODEL")
+    or "gemini-2.5-flash"
+)
 _clients: dict[str, Any] = {}
 
 

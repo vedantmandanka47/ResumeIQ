@@ -1,6 +1,6 @@
 import Button from '../common/Button';
 
-export default function TextPreview({ text, onConfirm, onReset, isAnalyzing }) {
+export default function TextPreview({ text, onConfirm, onGenerate, onReset, isAnalyzing, isGenerating }) {
   const preview = text || '';
 
   return (
@@ -16,7 +16,8 @@ export default function TextPreview({ text, onConfirm, onReset, isAnalyzing }) {
 
       <div className="text-preview__actions">
         <Button onClick={onConfirm} loading={isAnalyzing}>Analyze &rarr;</Button>
-        <Button variant="text" onClick={onReset} disabled={isAnalyzing}>Wrong file</Button>
+        <Button variant="secondary" onClick={onGenerate} loading={isGenerating}>Generate Resume</Button>
+        <Button variant="text" onClick={onReset} disabled={isAnalyzing || isGenerating}>Wrong file</Button>
       </div>
     </div>
   );

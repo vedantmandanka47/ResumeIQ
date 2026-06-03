@@ -38,3 +38,6 @@ class ResumeSession(Base):
     roadmaps: Mapped[list["RoadmapResult"]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
     )
+    generated_resumes: Mapped[list["GeneratedResume"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
+    )

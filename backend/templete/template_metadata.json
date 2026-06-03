@@ -1,0 +1,18 @@
+{
+  "minimalist": {
+    "id": "minimalist",
+    "name": "Minimalist",
+    "file": "canonical_minimalist.docx",
+    "preview": "/static/previews/minimalist.png",
+    "order": 1,
+    "description": "Clean black-and-white layout. Classic typography, horizontal rules."
+  },
+  "modern_blue": {
+    "id": "modern_blue",
+    "name": "Modern Blue",
+    "file": "canonical_modern_blue.docx",
+    "preview": "/static/previews/modern_blue.png",
+    "order": 2,
+    "description": "Navy header block with blue accent titles. Modern and bold."
+  }
+}
