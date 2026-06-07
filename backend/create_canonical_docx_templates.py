@@ -13,7 +13,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
-TEMPLATE_DIR = Path(__file__).parent / "templete"
+TEMPLATE_DIR = Path(__file__).parent / "template"
 
 
 def add_bottom_border(paragraph, color_hex: str) -> None:

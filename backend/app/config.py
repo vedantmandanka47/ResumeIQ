@@ -89,7 +89,7 @@ class Settings:
         default_factory=lambda: int(os.environ.get("GENERATED_FILE_TTL_HOURS", "24"))
     )
     template_dir: str = field(
-        default_factory=lambda: os.environ.get("TEMPLATE_DIR", str(_BACKEND_DIR / "templete"))
+        default_factory=lambda: os.environ.get("TEMPLATE_DIR", str(_BACKEND_DIR / "template"))
     )
     generated_dir: str = field(
         default_factory=lambda: os.environ.get("GENERATED_DIR", str(_BACKEND_DIR / "generated"))

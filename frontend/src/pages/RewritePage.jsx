@@ -2,17 +2,27 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAnalysis } from '../hooks/useAnalysis';
+import { useToast } from '../components/common/ToastProvider';
 
 import SideBySide from '../components/rewrite/SideBySide';
 import ChangeLog from '../components/rewrite/ChangeLog';
 import { ResumeDocxPreview } from '../components/ResumeDocxPreview';
 import { TemplateSwitcher } from '../components/TemplateSwitcher';
+import ScoreRing from '../components/analysis/ScoreRing';
 
 import Button from '../components/common/Button';
 import Spinner from '../components/common/Spinner';
 import ErrorBlock from '../components/common/ErrorBlock';
+import StepProgress from '../components/common/StepProgress';
 
 import './RewritePage.css';
+
+const REWRITE_STEPS = [
+  { key: 'parse',    label: 'Parsing resume structure…'     },
+  { key: 'rewrite',  label: 'Optimizing impact statements…'  },
+  { key: 'ats',      label: 'Aligning with ATS standards…'   },
+  { key: 'done',     label: 'Finalizing rewritten copy…'     },
+];
 
 async function loadStructuredResumeData(sessionId) {
   try {
@@ -44,7 +54,8 @@ async function loadStructuredResumeData(sessionId) {
 export default function RewritePage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
-  const { rewriteResult, setRewriteResult } = useAnalysis();
+  const { rewriteResult, setRewriteResult, analysis } = useAnalysis();
+  const toast = useToast();
 
   const [isLoading, setIsLoading] = useState(!rewriteResult);
   const [error, setError] = useState(null);
@@ -52,6 +63,22 @@ export default function RewritePage() {
   const [resumeData, setResumeData] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState('minimalist');
   const [previewError, setPreviewError] = useState(null);
+  const [rewriteScore, setRewriteScore] = useState(null);
+
+  // After fetchRewrite() succeeds, extract the post-rewrite score:
+  useEffect(() => {
+    if (!rewriteResult) return;
+    // The rewrite result includes authenticity pass scores
+    const score = rewriteResult.authenticity?.adjusted_score
+      ?? rewriteResult.authenticity_json?.adjusted_score
+      ?? null;
+    if (score != null) setRewriteScore(Math.round(score));
+  }, [rewriteResult]);
+
+  const scoreDelta =
+    rewriteScore != null && analysis?.overall_score != null
+      ? rewriteScore - analysis.overall_score
+      : null;
 
   const fetchRewrite = useCallback(async () => {
     if (rewriteResult) return;
@@ -61,7 +88,7 @@ export default function RewritePage() {
       const data = await api.resume.rewrite(sessionId, {});
       setRewriteResult(data);
     } catch (err) {
-      setError(err.message || 'Failed to rewrite resume.');
+      setError(err);
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +115,9 @@ export default function RewritePage() {
             (err.code === 'GENERATION_FAILED'
               ? 'Failed to build structured resume for DOCX preview. Check backend logs and Gemini configuration.'
               : 'Failed to load structured resume for preview.');
-          setPreviewError(message);
+          const formattedErr = new Error(message);
+          formattedErr.retryAfter = err.retryAfter;
+          setPreviewError(formattedErr);
         }
       });
 
@@ -112,7 +141,7 @@ export default function RewritePage() {
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err.message || 'Failed to download.');
+      toast(err.message || 'Failed to download.', 'error');
     } finally {
       setIsDownloading(false);
     }
@@ -121,8 +150,7 @@ export default function RewritePage() {
   if (isLoading) {
     return (
       <div className="page rewrite-page loading-state">
-        <Spinner size={32} />
-        <p className="text-secondary mt-4">Rewriting your resume with ATS optimization...</p>
+        <StepProgress steps={REWRITE_STEPS} intervalMs={2400} />
       </div>
     );
   }
@@ -130,7 +158,11 @@ export default function RewritePage() {
   if (error) {
     return (
       <div className="page rewrite-page container">
-        <ErrorBlock message={error} onRetry={fetchRewrite} />
+        <ErrorBlock
+          message={typeof error === 'string' ? error : error.message}
+          retryAfter={error?.retryAfter}
+          onRetry={fetchRewrite}
+        />
       </div>
     );
   }
@@ -147,6 +179,21 @@ export default function RewritePage() {
             We&apos;ve optimized your resume for ATS parsers and improved impact statements.
             Review the changes below, preview formatted DOCX output, and download when ready.
           </p>
+
+          {/* NEW: score delta badge */}
+          {rewriteScore != null && (
+            <div className="rewrite-score-summary" style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 16 }}>
+              <div>
+                <p className="label" style={{ marginBottom: 4 }}>After Rewrite</p>
+                <ScoreRing score={rewriteScore} delta={scoreDelta} />
+              </div>
+              {analysis?.overall_score != null && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+                  was <strong>{analysis.overall_score}</strong>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mt-8 mb-8">
@@ -174,7 +221,10 @@ export default function RewritePage() {
           </div>
 
           {previewError && (
-            <ErrorBlock message={previewError} />
+            <ErrorBlock
+              message={typeof previewError === 'string' ? previewError : previewError.message}
+              retryAfter={previewError?.retryAfter}
+            />
           )}
 
           {resumeData && (

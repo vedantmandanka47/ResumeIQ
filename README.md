@@ -67,7 +67,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe create_canonical_docx_templates.py
 ```
 
-This creates `backend/templete/canonical_minimalist.docx` and `canonical_modern_blue.docx`.
+This creates `backend/template/canonical_minimalist.docx` and `canonical_modern_blue.docx`.
 
 ### 4. Start backend
 
@@ -156,7 +156,7 @@ Run in this sequence so failures are easy to localize.
 
 1. PostgreSQL reachable; database `resumeiq` exists.
 2. `cd backend && alembic upgrade head` — succeeds.
-3. `python create_canonical_docx_templates.py` — two `.docx` files under `backend/templete/`.
+3. `python create_canonical_docx_templates.py` — two `.docx` files under `backend/template/`.
 4. `uvicorn app.main:app --reload` — no import or env errors.
 5. `curl http://localhost:8000/health` → `{"status":"ok",...}`.
 6. `curl http://localhost:8000/health/db` → `{"db":"connected"}`.
@@ -210,7 +210,7 @@ ResumeIQ/
 ├── backend/
 │   ├── app/              # FastAPI app (routers, services, models)
 │   ├── alembic/          # DB migrations
-│   ├── templete/         # DOCX templates + template_metadata.json
+│   ├── template/         # DOCX templates + template_metadata.json
 │   ├── generated/        # Generated docx/pdf output
 │   ├── tests/
 │   ├── create_canonical_docx_templates.py
@@ -233,7 +233,7 @@ ResumeIQ/
 | Server won’t start — missing env | No `.env` in `backend/` | Copy `backend/.env.example` → `backend/.env` |
 | `relation "structured_resumes" does not exist` | Migration not applied | `alembic upgrade head` |
 | DOCX preview “Something went wrong” | Old backend code or missing migration | Restart API; run migrations |
-| Generate returns 404 template | No `.docx` in `templete/` | Run `create_canonical_docx_templates.py` |
+| Generate returns 404 template | No `.docx` in `template/` | Run `create_canonical_docx_templates.py` |
 | LLM health offline | Bad/missing API key | Check `GOOGLE_API_KEY` |
 | MCP/Drive features fail | Optional env not set | Configure or ignore optional routes |
 | PDF preview missing | No LibreOffice/Word | Use DOCX download; check `pdf_error` in response |

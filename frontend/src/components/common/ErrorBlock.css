@@ -9,22 +9,14 @@
   gap: 16px;
 }
 
-.error-block__content {
-  flex: 1;
-}
-
-.error-block__content strong {
-  display: block;
-  color: var(--rework);
-  margin-bottom: 4px;
-}
-
-.error-block__content p {
+.error-block__message {
   color: var(--text-secondary);
   font-size: var(--text-sm);
   margin: 0;
 }
 
-.error-block__action {
+.error-block__retry {
   flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: var(--text-sm);
 }

@@ -37,7 +37,7 @@ export default function GeneratePage() {
       setTemplates(data.templates || []);
       setSelectedTemplate(data.template_id);
     } catch (err) {
-      setError(err.message || 'Failed to generate resume.');
+      setError(err);
     } finally {
       requestInFlight.current = false;
       setIsLoading(false);
@@ -66,7 +66,7 @@ export default function GeneratePage() {
       setTemplates(data.templates || templates);
       setSelectedTemplate(data.template_id);
     } catch (err) {
-      setError(err.message || 'Failed to switch template.');
+      setError(err);
       setSelectedTemplate(generation.template_id);
     } finally {
       setIsSwitching(false);
@@ -79,7 +79,7 @@ export default function GeneratePage() {
     try {
       await api.generation.downloadDocx(generation.id);
     } catch (err) {
-      setError(err.message || 'Failed to download DOCX.');
+      setError(err);
     } finally {
       setIsDownloadingDocx(false);
     }
@@ -91,7 +91,7 @@ export default function GeneratePage() {
     try {
       await api.generation.downloadPdf(generation.id);
     } catch (err) {
-      setError(err.message || 'Failed to download PDF.');
+      setError(err);
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -121,7 +121,13 @@ export default function GeneratePage() {
           </Button>
         </div>
 
-        {error && <ErrorBlock message={error} onRetry={generate} />}
+        {error && (
+          <ErrorBlock
+            message={typeof error === 'string' ? error : error.message}
+            retryAfter={error?.retryAfter}
+            onRetry={generate}
+          />
+        )}
 
         {generation && (
           <>

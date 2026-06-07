@@ -5,12 +5,12 @@ import json
 import logging
 from typing import Any
 
-from google import genai
 from google.genai import types
 from pydantic import ValidationError
 
 from app.config import settings
 from app.schemas.resume_data import ResumeOutputSchema
+from app.services.agent.gemini import _get_client  # reuse the cached client
 from app.services.agent.prompts.resume_generation import GENERATE_STRUCTURED_RESUME_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ async def _call_schema_enforced_gemini(prompt: str) -> Any:
     if not settings.google_api_key:
         raise GeminiStructuredOutputError("GOOGLE_API_KEY is not configured")
 
-    client = genai.Client(api_key=settings.google_api_key)
+    client = _get_client()  # cached — no new TCP connection
     response = await client.aio.models.generate_content(
         model=settings.gemini_resume_model,
         contents=prompt,

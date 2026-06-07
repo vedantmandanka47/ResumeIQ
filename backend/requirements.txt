@@ -17,3 +17,5 @@ pymongo==4.17.0
 requests==2.32.3
 docxtpl==0.16.8
 docx2pdf==0.1.8
+sse-starlette>=1.6.1
+redis>=5.0.0

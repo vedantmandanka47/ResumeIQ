@@ -1,0 +1,29 @@
+/* frontend/src/pages/CoverLetterPage.css */
+.cl-header { margin-bottom: 32px; }
+.cl-header h1 { margin-bottom: 8px; }
+
+.cl-form { padding: 28px; display: flex; flex-direction: column; gap: 20px; max-width: 540px; }
+.cl-form__field { display: flex; flex-direction: column; gap: 8px; }
+.cl-tone-buttons { display: flex; gap: 8px; }
+
+.cl-loading { padding: 48px 0; max-width: 360px; margin: 0 auto; }
+
+.cl-result { display: flex; flex-direction: column; gap: 16px; }
+.cl-result__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cl-selling-points { padding: 20px; }
+.cl-text { padding: 28px; }
+.cl-text__content {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}

@@ -11,7 +11,7 @@ from docxtpl import DocxTemplate
 from app.schemas.resume_data import ResumeOutputSchema
 from app.services.templates.mapping import build_template_context
 
-TEMPLATE_DIR = Path(__file__).parent.parent.parent / "templete"
+TEMPLATE_DIR = Path(__file__).parent.parent.parent / "template"
 METADATA_FILE = TEMPLATE_DIR / "template_metadata.json"
 
 

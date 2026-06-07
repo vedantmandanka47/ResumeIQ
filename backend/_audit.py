@@ -1,6 +1,6 @@
 import os, zipfile, xml.etree.ElementTree as ET, re
 
-template_dir = os.path.join(os.path.dirname(__file__), "templete")
+template_dir = os.path.join(os.path.dirname(__file__), "template")
 NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 VAR_RE = re.compile(r"\{\{.*?\}\}|\{%.*?%\}")
 

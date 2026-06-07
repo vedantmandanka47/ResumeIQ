@@ -13,8 +13,13 @@ from app.models import GeneratedResume
 logger = logging.getLogger(__name__)
 
 
-def generated_root() -> Path:
+def get_generated_dir() -> Path:
+    """Return the configured GENERATED_DIR as a resolved Path."""
     return Path(settings.generated_dir).resolve()
+
+
+def generated_root() -> Path:
+    return get_generated_dir()
 
 
 def generated_docx_dir() -> Path:
@@ -35,7 +40,12 @@ def expiration_time() -> datetime:
 
 
 def resolve_generated_path(path_value: str, expected_dir: Path) -> Path:
-    path = Path(path_value).resolve()
+    """Resolve a stored path (relative or absolute) to a safe absolute path."""
+    candidate = Path(path_value)
+    if not candidate.is_absolute():
+        # Relative path stored after fix 1.3 — resolve against generated root
+        candidate = generated_root() / path_value
+    path = candidate.resolve()
     root = expected_dir.resolve()
     if root != path and root not in path.parents:
         raise ValueError("Generated file path is outside the allowed directory")
@@ -68,10 +78,17 @@ async def cleanup_expired_files(db: AsyncSession) -> int:
 
 def cleanup_orphan_files(active_paths: set[str]) -> int:
     ensure_generated_dirs()
+    # Resolve all active paths to absolute for comparison
+    resolved_active = set()
+    for p in active_paths:
+        try:
+            resolved_active.add(str(resolve_generated_path(p, generated_root()).resolve()))
+        except (ValueError, Exception):
+            resolved_active.add(p)
     removed = 0
     for directory in (generated_docx_dir(), generated_pdf_dir()):
         for path in directory.glob("*"):
-            if path.is_file() and str(path.resolve()) not in active_paths:
+            if path.is_file() and str(path.resolve()) not in resolved_active:
                 try:
                     path.unlink()
                     removed += 1

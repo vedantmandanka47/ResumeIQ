@@ -10,7 +10,7 @@ if (-not (Test-Path ".\.venv\Scripts\python.exe")) {
 $python = ".\.venv\Scripts\python.exe"
 & $python -m pip install -q -r requirements.txt
 
-if (-not (Test-Path ".\templete\canonical_minimalist.docx")) {
+if (-not (Test-Path ".\template\canonical_minimalist.docx")) {
     Write-Host "Generating DOCX templates..."
     & $python create_canonical_docx_templates.py
 }

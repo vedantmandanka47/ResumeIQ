@@ -18,6 +18,7 @@ export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState(null);
+  const [targetRole, setTargetRole] = useState('');
   
   // Upload state
   const [isUploading, setIsUploading] = useState(false);
@@ -86,7 +87,7 @@ export default function UploadPage() {
       setUploadResult(data);
       setSessionId(data.session_id);
     } catch (err) {
-      setError(err.message || 'Failed to upload and parse resume.');
+      setError(err);
     } finally {
       setIsUploading(false);
     }
@@ -95,9 +96,9 @@ export default function UploadPage() {
   const handleAnalyzeSubmit = async () => {
     if (!uploadResult?.session_id) return;
     setIsAnalyzing(true);
-    // Note: We don't call analyze here, we just navigate to the analysis page.
-    // The analysis page calls it on mount.
-    navigate(`/analysis/${uploadResult.session_id}`);
+    navigate(`/analysis/${uploadResult.session_id}`, {
+      state: { targetRole: targetRole.trim() || null }
+    });
   };
 
   const handleGenerateSubmit = () => {
@@ -129,11 +130,25 @@ export default function UploadPage() {
           {file && !uploadResult && (
             <div className="upload-file-state">
               <FileChip file={file} onRemove={handleReset} />
-              <Button 
-                onClick={handleUploadSubmit} 
-                loading={isUploading}
-                style={{ width: '100%', marginTop: '24px' }}
-              >
+
+              {/* NEW: target role field */}
+              <div className="upload-role-field" style={{ marginTop: 16 }}>
+                <label className="label" htmlFor="target-role" style={{ display: 'block', marginBottom: 6 }}>
+                  Target role <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
+                </label>
+                <input
+                  id="target-role"
+                  type="text"
+                  className="input-base"
+                  placeholder="e.g. Senior Product Designer"
+                  value={targetRole}
+                  onChange={(e) => setTargetRole(e.target.value)}
+                  maxLength={120}
+                  autoComplete="off"
+                />
+              </div>
+
+              <Button onClick={handleUploadSubmit} loading={isUploading} style={{ width: '100%', marginTop: 24 }}>
                 Upload &amp; Extract Text
               </Button>
             </div>
@@ -152,7 +167,11 @@ export default function UploadPage() {
         </div>
 
         {error && (
-          <ErrorBlock message={error} className="upload-error" />
+          <ErrorBlock
+            message={typeof error === 'string' ? error : error.message}
+            retryAfter={error?.retryAfter}
+            className="upload-error"
+          />
         )}
 
       </div>

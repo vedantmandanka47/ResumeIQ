@@ -37,6 +37,7 @@ export default function StatusPage() {
   const [statuses, setStatuses] = useState(
     SERVICES_CONFIG.reduce((acc, s) => ({ ...acc, [s.key]: { state: 'loading', message: '' } }), {})
   );
+  const [lastChecked, setLastChecked] = useState(null);
 
   const fetchStatus = useCallback(async () => {
     setStatuses(
@@ -89,10 +90,16 @@ export default function StatusPage() {
       });
       return next;
     });
+
+    setLastChecked(new Date());
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    fetchStatus();                                    // immediate on mount
+
+    const timer = setInterval(fetchStatus, 30_000);  // every 30 s
+
+    return () => clearInterval(timer);                // clean up on unmount
   }, [fetchStatus]);
 
   const serviceStates = Object.values(statuses).map(({ state }) => state);
@@ -108,6 +115,11 @@ export default function StatusPage() {
         <div className="status-header">
           <h1 className="text-3xl">ResumeIQ Status</h1>
           <p className="text-secondary text-base">{summary}</p>
+          {lastChecked && (
+            <p className="text-muted text-sm" style={{ marginTop: 4 }}>
+              Last checked {lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </p>
+          )}
         </div>
 
         <div className="status-grid">

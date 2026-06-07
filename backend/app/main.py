@@ -1,5 +1,6 @@
 """ResumeIQ FastAPI application."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -51,10 +52,51 @@ async def lifespan(app: FastAPI):
                 )
     except Exception as exc:
         logger.warning("Generated file startup cleanup failed: %s", exc, exc_info=True)
+
+    # Start recurring background cleanup task
+    cleanup_task = asyncio.create_task(_periodic_cleanup(interval_seconds=3600))
+
     logger.info("ResumeIQ v%s started successfully", settings.app_version)
     yield
+
+    # Cancel background cleanup task on shutdown
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+
     await dispose_db()
     logger.info("ResumeIQ shut down successfully")
+
+
+async def _periodic_cleanup(interval_seconds: int = 3600) -> None:
+    """
+    Runs every `interval_seconds`. Deletes GeneratedResume rows whose
+    expires_at has passed and removes the associated files from disk.
+    """
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            async with get_session_factory()() as session:
+                removed_records = await cleanup_expired_files(session)
+                from sqlalchemy import select
+                from app.models import GeneratedResume as GM
+
+                records = (await session.execute(select(GM))).scalars().all()
+                active_paths = set()
+                for r in records:
+                    active_paths.add(r.docx_path)
+                    if r.pdf_path:
+                        active_paths.add(r.pdf_path)
+                removed_files = cleanup_orphan_files(active_paths)
+                if removed_records or removed_files:
+                    logger.info(
+                        "Periodic cleanup: removed records=%s files=%s",
+                        removed_records, removed_files,
+                    )
+        except Exception as exc:
+            logger.warning("Periodic cleanup failed: %s", exc, exc_info=True)
 
 
 def create_app() -> FastAPI:

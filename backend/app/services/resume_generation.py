@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import GeneratedResume, ResumeSession, RewriteResult, StructuredResume
 from app.schemas.resume_data import ResumeOutputSchema
-from app.services.file_manager import expiration_time, generated_docx_dir, generated_pdf_dir
+from app.services.file_manager import expiration_time, generated_docx_dir, generated_pdf_dir, get_generated_dir
 from app.services.gemini.structured_output import generate_structured_resume
 from app.services.pdf_converter import convert_docx_to_pdf
 from app.services.resume_hash import hash_resume_content
@@ -19,6 +19,16 @@ from app.services.templates.registry import TemplateMetadata, get_template, list
 from app.services.templates.renderer import render_resume_docx
 
 logger = logging.getLogger(__name__)
+
+
+def _to_relative(absolute_path: Path) -> str:
+    """Store only the path component relative to GENERATED_DIR."""
+    return str(absolute_path.relative_to(get_generated_dir()))
+
+
+def _from_relative(relative_path: str) -> Path:
+    """Resolve a stored relative path back to an absolute path."""
+    return get_generated_dir() / relative_path
 
 
 @dataclass(frozen=True)
@@ -70,7 +80,11 @@ async def get_or_create_structured_resume(
     rewrite_instructions: str | None,
 ) -> tuple[StructuredResume, bool]:
     source_text = await _resume_source_text(db, session)
-    resume_hash = hash_resume_content(source_text)
+    resume_hash = hash_resume_content(
+        source_text,
+        job_description=job_description,
+        rewrite_instructions=rewrite_instructions,
+    )
     existing = (
         await db.execute(select(StructuredResume).where(StructuredResume.resume_hash == resume_hash))
     ).scalar_one_or_none()
@@ -151,8 +165,8 @@ async def create_generation(
         session_id=session.id,
         structured_resume_id=structured_resume.id,
         template_id=template.id,
-        docx_path=str(docx_path.resolve()),
-        pdf_path=str(pdf_path.resolve()) if pdf_path else None,
+        docx_path=_to_relative(docx_path),
+        pdf_path=_to_relative(pdf_path) if pdf_path else None,
         pdf_error=pdf_error,
         expires_at=expiration_time(),
     )
@@ -186,8 +200,8 @@ async def switch_template(
         session_id=generation.session_id,
         structured_resume_id=generation.structured_resume_id,
         template_id=template.id,
-        docx_path=str(docx_path.resolve()),
-        pdf_path=str(pdf_path.resolve()) if pdf_path else None,
+        docx_path=_to_relative(docx_path),
+        pdf_path=_to_relative(pdf_path) if pdf_path else None,
         pdf_error=pdf_error,
         expires_at=expiration_time(),
     )
