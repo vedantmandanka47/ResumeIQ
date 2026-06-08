@@ -24,7 +24,7 @@
 }
 
 /* DropZone */
-.drop-zone {
+.dropzone {
   border: 2px dashed var(--border-default);
   border-radius: var(--radius-md);
   padding: 48px 24px;
@@ -34,23 +34,23 @@
   transition: all var(--duration-base) var(--ease);
 }
 
-.drop-zone--active, .drop-zone:hover {
+.dropzone--dragging, .dropzone:hover {
   border-color: var(--text-primary);
   background: var(--surface-1);
 }
 
-.drop-zone__icon {
+.dropzone__icon {
   color: var(--text-secondary);
   margin-bottom: 16px;
 }
 
-.drop-zone__title {
+.dropzone__title {
   font-weight: 500;
   font-size: var(--text-base);
   margin-bottom: 4px;
 }
 
-.drop-zone__caption {
+.dropzone__caption {
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }

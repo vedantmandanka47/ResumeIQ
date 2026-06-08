@@ -15,7 +15,11 @@ export default function CriticalFixes({ fixes }) {
       <h3 className="label">Critical Fixes</h3>
       <ol className="fixes-list">
         {sortedFixes.map((fix, idx) => (
-          <li key={idx} className="fix-item">
+          <li
+            key={idx}
+            className="fix-item stagger-item"
+            style={{ '--stagger-delay': `${idx * 60}ms` }}
+          >
             <span className={`fix-item__badge ${getPriorityClass(fix.priority)}`} />
             <div className="fix-item__content">
               <p className="fix-item__issue">{fix.issue}</p>

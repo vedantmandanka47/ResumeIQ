@@ -37,27 +37,41 @@ export default function StatusPage() {
   const [statuses, setStatuses] = useState(
     SERVICES_CONFIG.reduce((acc, s) => ({ ...acc, [s.key]: { state: 'loading', message: '' } }), {})
   );
+  const [lastChecked, setLastChecked] = useState(null);
 
   const fetchStatus = useCallback(async () => {
     setStatuses(
       SERVICES_CONFIG.reduce((acc, s) => ({ ...acc, [s.key]: { state: 'loading', message: '' } }), {})
     );
 
+    const isConnected = (value) => {
+      const normalized = String(value ?? '').toLowerCase();
+      return normalized === 'connected' || normalized === 'ready' || normalized === 'ok';
+    };
+
     const promises = SERVICES_CONFIG.map(async (svc) => {
       try {
         const data = await api.health[svc.key]();
         let state = 'ok';
         let message = 'Connected';
-        
-        // Detailed checks per service
-        if (svc.key === 'app' && data.status !== 'ok') state = 'error';
-        if (svc.key === 'db' && data.db !== 'connected') state = 'error';
-        if (svc.key === 'llm' && data.llm !== 'connected') state = 'error';
-        if (svc.key === 'mcp' && data.mcp !== 'connected') state = 'error';
 
-        if (state === 'error') message = data.detail || 'Service degraded';
-        else if (svc.key === 'app' && data.version) message = `Version ${data.version}`;
-        else if (svc.key === 'llm' && data.model) message = `Model: ${data.model}`;
+        if (svc.key === 'app') {
+          if (!isConnected(data.status)) state = 'error';
+        } else if (svc.key === 'db') {
+          if (!isConnected(data.db)) state = 'error';
+        } else if (svc.key === 'llm') {
+          if (!isConnected(data.llm)) state = 'error';
+        } else if (svc.key === 'mcp') {
+          if (!isConnected(data.mcp)) state = 'error';
+        }
+
+        if (state === 'error') {
+          message = data.detail || data.error || 'Service degraded';
+        } else if (svc.key === 'app' && data.version) {
+          message = `Version ${data.version}`;
+        } else if (svc.key === 'llm' && data.model) {
+          message = `Model: ${data.model}`;
+        }
 
         return { key: svc.key, state, message };
       } catch (err) {
@@ -76,10 +90,16 @@ export default function StatusPage() {
       });
       return next;
     });
+
+    setLastChecked(new Date());
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    fetchStatus();                                    // immediate on mount
+
+    const timer = setInterval(fetchStatus, 30_000);  // every 30 s
+
+    return () => clearInterval(timer);                // clean up on unmount
   }, [fetchStatus]);
 
   const serviceStates = Object.values(statuses).map(({ state }) => state);
@@ -95,6 +115,11 @@ export default function StatusPage() {
         <div className="status-header">
           <h1 className="text-3xl">ResumeIQ Status</h1>
           <p className="text-secondary text-base">{summary}</p>
+          {lastChecked && (
+            <p className="text-muted text-sm" style={{ marginTop: 4 }}>
+              Last checked {lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </p>
+          )}
         </div>
 
         <div className="status-grid">

@@ -1,6 +1,8 @@
 """Resume upload, analysis, rewrite, persistence, and export endpoints."""
 
+import asyncio
 import io
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -9,9 +11,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from pydantic import BaseModel, HttpUrl
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -24,7 +27,10 @@ from app.models import (
     ResumeSession,
     RewriteResult,
     RoadmapResult,
+    StructuredResume,
 )
+from app.services.resume_generation import _resume_source_text
+from app.services.resume_hash import hash_resume_content
 from app.schemas.analysis import AnalysisRequest
 from app.schemas.company import CompanyAnalysisRequest
 from app.schemas.rewrite import RewriteRequest
@@ -32,9 +38,65 @@ from app.schemas.upload import SessionResponse, UploadResponse
 from app.services.agent_gateway import invoke
 from app.services.docx_builder import build_resume_docx
 from app.services.parser import extract_text_from_docx, extract_text_from_pdf
+from app.services.template_engine import list_templates as list_docx_templates
+from app.services.template_engine import render_resume as render_resume_docx
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/resume", tags=["resume"])
+
+
+class ResumeRenderRequest(BaseModel):
+    resume_data: dict
+    template_id: str = "minimalist"
+
+
+@router.get("/templates")
+async def get_templates() -> list[dict]:
+    """Return available DOCX templates for the template switcher."""
+    return await run_in_threadpool(list_docx_templates)
+
+
+@router.post("/render", response_model=None)
+async def render_resume_endpoint(req: ResumeRenderRequest):
+    """Render a DOCX resume from structured JSON (no Gemini call)."""
+    try:
+        docx_bytes = await run_in_threadpool(render_resume_docx, req.resume_data, req.template_id)
+    except FileNotFoundError as exc:
+        return _error(404, str(exc), "TEMPLATE_NOT_FOUND")
+    except ValueError as exc:
+        return _error(422, str(exc), "RENDER_VALIDATION_FAILED")
+    except Exception as exc:
+        logger.error("DOCX render failed: %s", exc, exc_info=True)
+        return _error(500, f"Rendering failed: {exc}", "RENDER_FAILED")
+
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": 'inline; filename="resume.docx"',
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@router.post("/render/download", response_model=None)
+async def download_resume_endpoint(req: ResumeRenderRequest):
+    """Render a DOCX resume and return it as a download."""
+    try:
+        docx_bytes = await run_in_threadpool(render_resume_docx, req.resume_data, req.template_id)
+    except FileNotFoundError as exc:
+        return _error(404, str(exc), "TEMPLATE_NOT_FOUND")
+    except ValueError as exc:
+        return _error(422, str(exc), "RENDER_VALIDATION_FAILED")
+    except Exception as exc:
+        logger.error("DOCX render download failed: %s", exc, exc_info=True)
+        return _error(500, f"Rendering failed: {exc}", "RENDER_FAILED")
+
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="resume.docx"'},
+    )
 
 
 def _error(status_code: int, message: str, code: str) -> JSONResponse:
@@ -64,17 +126,16 @@ async def _get_latest(db: AsyncSession, model: Any, session_id: UUID) -> Any | N
 
 
 async def _store(db: AsyncSession, record: Any) -> JSONResponse | None:
-    """Store one record in an explicit write transaction."""
+    """Persist a single record. Caller is responsible for transaction scope."""
     try:
-        if db.in_transaction():
-            await db.rollback()
-        async with db.begin():
-            db.add(record)
-            await db.flush()
+        db.add(record)
+        await db.commit()
+        await db.refresh(record)
         return None
     except SQLAlchemyError as exc:
-        logger.error("Database write failed for %s: %s", type(record).__name__, exc, exc_info=True)
-        return _error(503, "Database write failed", "DATABASE_WRITE_FAILED")
+        await db.rollback()
+        logger.error("DB write failed for %s: %s", type(record).__name__, exc, exc_info=True)
+        return _error(500, "Database write failed", "DB_WRITE_FAILED")
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -92,9 +153,15 @@ async def _run_and_store_analysis(
     db: AsyncSession,
     session: ResumeSession,
     target_role: str | None = None,
+    job_description: str | None = None,
 ) -> AnalysisResult | JSONResponse:
     try:
-        result = await invoke("analyze", raw_text=session.raw_text, target_role=target_role)
+        result = await invoke(
+            "analyze",
+            raw_text=session.raw_text,
+            target_role=target_role,
+            job_description=job_description,
+        )
     except Exception as exc:
         logger.error("Analysis agent call failed: %s", exc)
         return _error(502, str(exc), "ANALYSIS_FAILED")
@@ -181,6 +248,36 @@ async def get_benchmark() -> dict[str, Any] | JSONResponse:
     return result
 
 
+@router.get("/{session_id}/structured-resume", response_model=None)
+async def get_structured_resume(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object] | JSONResponse:
+    """Return cached canonical structured resume JSON for template preview."""
+    session = await _get_session(db, session_id)
+    if session is None:
+        return _error(404, "Session not found", "SESSION_NOT_FOUND")
+
+    resume_hash = hash_resume_content(await _resume_source_text(db, session))
+    try:
+        statement = select(StructuredResume).where(StructuredResume.resume_hash == resume_hash)
+        structured = (await db.execute(statement)).scalar_one_or_none()
+    except ProgrammingError as exc:
+        logger.error("Structured resume lookup failed (schema): %s", exc)
+        return _error(
+            503,
+            "Structured resume storage is not ready. Run database migrations (alembic upgrade head).",
+            "STRUCTURED_RESUME_SCHEMA_MISSING",
+        )
+    except SQLAlchemyError as exc:
+        logger.error("Structured resume lookup failed: %s", exc)
+        return _error(503, "Database read failed", "DATABASE_READ_FAILED")
+
+    if structured is None:
+        return _error(404, "Structured resume not found", "STRUCTURED_RESUME_NOT_FOUND")
+    return {"resume_data": structured.structured_resume_json}
+
+
 @router.get("/{session_id}", response_model=SessionResponse)
 async def get_resume_session(
     session_id: UUID,
@@ -211,7 +308,8 @@ async def analyze_resume(
         return _error(404, "Session not found", "SESSION_NOT_FOUND")
 
     target_role = sanitize_text_input(body.target_role) or None
-    record = await _run_and_store_analysis(db, session, target_role)
+    job_description = sanitize_text_input(body.job_description) or None
+    record = await _run_and_store_analysis(db, session, target_role, job_description)
     return record if isinstance(record, JSONResponse) else record.result_json
 
 
@@ -468,3 +566,195 @@ async def export_to_drive(
     if isinstance(url, dict) and "error" in url:
         return _error(502, "Failed to export to Google Drive", "DRIVE_EXPORT_FAILED")
     return {"drive_url": str(url)}
+
+
+# ---------------------------------------------------------------------------
+# 4.1 — SSE Streaming Progress for Analysis
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{session_id}/analyze/stream")
+async def stream_analysis(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """
+    Server-Sent Events stream for real-time analysis progress.
+    Emits: step_start, step_done, complete, error events.
+    """
+    session = await _get_session(db, session_id)
+    if session is None:
+        return _error(404, "Session not found", "SESSION_NOT_FOUND")
+
+    async def event_generator():
+        steps = [
+            ("extract",   "Extracting resume content…"),
+            ("structure", "Parsing resume structure…"),
+            ("ats",       "Running ATS compatibility check…"),
+            ("score",     "Scoring 7 dimensions…"),
+            ("insights",  "Generating actionable insights…"),
+            ("finalize",  "Finalising analysis report…"),
+        ]
+
+        def sse(event: str, data: dict) -> str:
+            return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+        try:
+            for key, label in steps[:-1]:
+                yield sse("step_start", {"step": key, "label": label})
+                await asyncio.sleep(0)  # yield control
+
+            # Kick off the real analysis
+            yield sse("step_start", {"step": "finalize", "label": steps[-1][1]})
+            result = await invoke(
+                "analyze",
+                raw_text=session.raw_text,
+                target_role=None,
+                job_description=None,
+            )
+
+            # Persist result
+            if isinstance(result, dict) and "error" not in result:
+                mode = result.get("mode")
+                score = result.get("overall_score")
+                if mode in {"general", "fresher"} and isinstance(score, int) and 0 <= score <= 100:
+                    record = AnalysisResult(
+                        session_id=session_id,
+                        mode=mode,
+                        overall_score=score,
+                        result_json=result,
+                    )
+                    if not await _store(db, record):
+                        pass  # stored successfully
+
+            yield sse("complete", {"overall_score": result.get("overall_score") if isinstance(result, dict) else None})
+
+        except Exception as exc:
+            logger.error("SSE analysis failed: %s", exc, exc_info=True)
+            yield sse("error", {"message": str(exc), "code": "ANALYSIS_FAILED"})
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4.3 — Cover Letter Generator
+# ---------------------------------------------------------------------------
+
+
+class CoverLetterRequest(BaseModel):
+    target_role: str
+    company_name: str
+    tone: str = "professional"  # professional | friendly | concise
+
+
+@router.post("/{session_id}/cover-letter", response_model=None)
+@limiter.limit(settings.rate_limit_post)
+async def generate_cover_letter(
+    request: Request,
+    session_id: UUID,
+    body: CoverLetterRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict | JSONResponse:
+    """
+    Generate a tailored cover letter using the resume text + any stored
+    company research from this session.
+    """
+    session = await _get_session(db, session_id)
+    if session is None:
+        return _error(404, "Session not found", "SESSION_NOT_FOUND")
+
+    company = await _get_latest(db, CompanyResult, session_id)
+    analysis = await _get_latest(db, AnalysisResult, session_id)
+
+    try:
+        result = await invoke(
+            "cover_letter",
+            raw_text=session.raw_text,
+            target_role=sanitize_text_input(body.target_role),
+            company_name=sanitize_text_input(body.company_name),
+            tone=body.tone,
+            analysis=analysis.result_json if analysis else None,
+            company_signals=company.result_json.get("company_signals") if company else None,
+        )
+    except Exception as exc:
+        logger.error("Cover letter generation failed: %s", exc, exc_info=True)
+        return _error(502, str(exc), "COVER_LETTER_FAILED")
+
+    if isinstance(result, dict) and "error" in result:
+        return _error(502, result.get("reason", "Cover letter generation failed"), "COVER_LETTER_FAILED")
+
+    return result  # { "cover_letter_text": str, "word_count": int, "key_selling_points": [...] }
+
+
+# ---------------------------------------------------------------------------
+# 4.4 — Job Posting URL Analyzer
+# ---------------------------------------------------------------------------
+
+
+class JDUrlRequest(BaseModel):
+    job_url: HttpUrl
+    target_role: str | None = None
+
+
+@router.post("/{session_id}/analyze/jd-url", response_model=None)
+@limiter.limit(settings.rate_limit_post)
+async def analyze_against_jd_url(
+    request: Request,
+    session_id: UUID,
+    body: JDUrlRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict | JSONResponse:
+    """
+    1. Use Gemini search grounding to extract JD requirements from the URL.
+    2. Re-run resume analysis graded against those requirements.
+    Returns: standard analysis response PLUS `jd_keyword_gaps` and `jd_match_score`.
+    """
+    session = await _get_session(db, session_id)
+    if session is None:
+        return _error(404, "Session not found", "SESSION_NOT_FOUND")
+
+    try:
+        # Step 1: Extract JD content via search grounding
+        jd_content = await invoke(
+            "extract_jd",
+            job_url=str(body.job_url),
+        )
+        if isinstance(jd_content, dict) and "error" in jd_content:
+            return _error(502, "Failed to extract job description", "JD_EXTRACT_FAILED")
+
+        # Step 2: Run analysis with JD context
+        result = await invoke(
+            "analyze",
+            raw_text=session.raw_text,
+            target_role=sanitize_text_input(body.target_role) or None,
+            job_description=jd_content.get("extracted_text", ""),
+        )
+    except Exception as exc:
+        logger.error("JD URL analysis failed: %s", exc, exc_info=True)
+        return _error(502, str(exc), "JD_ANALYSIS_FAILED")
+
+    if isinstance(result, dict) and "error" in result:
+        return _error(502, result.get("reason", "JD analysis failed"), "JD_ANALYSIS_FAILED")
+
+    # Persist as a regular analysis result
+    mode = result.get("mode")
+    score = result.get("overall_score")
+    if mode in {"general", "fresher"} and isinstance(score, int) and 0 <= score <= 100:
+        record = AnalysisResult(
+            session_id=session_id,
+            mode=mode,
+            overall_score=score,
+            target_role=sanitize_text_input(body.target_role),
+            result_json=result,
+        )
+        if error := await _store(db, record):
+            return error
+
+    return result

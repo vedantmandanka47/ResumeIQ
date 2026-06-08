@@ -1,19 +1,38 @@
-/**
- * useAnalysis — analysis state management via React Context
- * Stores all analysis results so they can be shared across pages
- * without re-fetching.
- */
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
-import { createContext, useContext, useState, useCallback } from 'react';
+const STORAGE_KEY = 'resumeiq:analysis';
+
+function loadFromStorage() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
 
 const AnalysisContext = createContext(null);
 
 export function AnalysisProvider({ children }) {
-  const [analysis, setAnalysis] = useState(null);
-  const [companyResult, setCompanyResult] = useState(null);
-  const [rewriteResult, setRewriteResult] = useState(null);
-  const [roadmapResult, setRoadmapResult] = useState(null);
-  const [benchmarkResult, setBenchmarkResult] = useState(null);
+  const persisted = loadFromStorage();
+
+  const [analysis,        setAnalysis]        = useState(persisted.analysis        ?? null);
+  const [companyResult,   setCompanyResult]   = useState(persisted.companyResult   ?? null);
+  const [rewriteResult,   setRewriteResult]   = useState(persisted.rewriteResult   ?? null);
+  const [roadmapResult,   setRoadmapResult]   = useState(persisted.roadmapResult   ?? null);
+  const [benchmarkResult, setBenchmarkResult] = useState(persisted.benchmarkResult ?? null);
+
+  // Persist to sessionStorage on every state change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ analysis, companyResult, rewriteResult, roadmapResult, benchmarkResult })
+      );
+    } catch {
+      // sessionStorage full or unavailable — continue silently
+    }
+  }, [analysis, companyResult, rewriteResult, roadmapResult, benchmarkResult]);
 
   const clearAll = useCallback(() => {
     setAnalysis(null);
@@ -21,6 +40,7 @@ export function AnalysisProvider({ children }) {
     setRewriteResult(null);
     setRoadmapResult(null);
     setBenchmarkResult(null);
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
   }, []);
 
   return (
@@ -41,8 +61,6 @@ export function AnalysisProvider({ children }) {
 
 export function useAnalysis() {
   const ctx = useContext(AnalysisContext);
-  if (!ctx) {
-    throw new Error('useAnalysis must be used within an AnalysisProvider');
-  }
+  if (!ctx) throw new Error('useAnalysis must be used within an AnalysisProvider');
   return ctx;
 }

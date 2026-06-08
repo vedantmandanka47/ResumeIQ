@@ -6,6 +6,8 @@ from app.models.company_result import CompanyResult
 from app.models.resume_session import ResumeSession
 from app.models.rewrite_result import RewriteResult
 from app.models.roadmap_result import RoadmapResult
+from app.models.structured_resume import StructuredResume
+from app.models.generated_resume import GeneratedResume
 
 __all__ = [
     "Base",
@@ -14,4 +16,6 @@ __all__ = [
     "CompanyResult",
     "RewriteResult",
     "RoadmapResult",
+    "StructuredResume",
+    "GeneratedResume",
 ]
