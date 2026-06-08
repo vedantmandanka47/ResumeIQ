@@ -26,7 +26,7 @@ export default function RoadmapPage() {
       const data = await api.resume.roadmap(sessionId);
       setRoadmapResult(data);
     } catch (err) {
-      setError(err.message || 'Failed to generate roadmap.');
+      setError(err);
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +48,11 @@ export default function RoadmapPage() {
   if (error) {
     return (
       <div className="page roadmap-page container">
-        <ErrorBlock message={error} onRetry={fetchRoadmap} />
+        <ErrorBlock
+          message={typeof error === 'string' ? error : error.message}
+          retryAfter={error?.retryAfter}
+          onRetry={fetchRoadmap}
+        />
       </div>
     );
   }

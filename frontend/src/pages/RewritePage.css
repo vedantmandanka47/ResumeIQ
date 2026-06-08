@@ -86,8 +86,110 @@
   color: var(--text-primary);
 }
 
+.rewrite-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.rewrite-preview__download {
+  background: none;
+  border: none;
+  color: var(--link);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  padding: 0;
+}
+
+.rewrite-preview__download:hover {
+  text-decoration: underline;
+}
+
+.rewrite-preview__download:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rewrite-preview__loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0;
+}
+
+.template-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.template-switcher__btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.template-switcher__btn:hover {
+  border-color: color-mix(in srgb, var(--link) 40%, var(--border-subtle));
+}
+
+.template-switcher__btn--active {
+  border-color: var(--link);
+  background: color-mix(in srgb, var(--link) 10%, var(--surface-1));
+  color: var(--link);
+}
+
+.resume-docx-preview {
+  position: relative;
+  width: 100%;
+}
+
+.resume-docx-preview__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--surface-1) 85%, transparent);
+  z-index: 1;
+}
+
+.resume-docx-preview__error {
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--rework) 30%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--rework) 8%, transparent);
+  color: var(--rework);
+  font-size: var(--text-sm);
+}
+
+.resume-docx-preview__container {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  min-height: 320px;
+  overflow-x: auto;
+}
+
 @media (max-width: 768px) {
   .side-by-side {
     grid-template-columns: 1fr;
+  }
+
+  .rewrite-preview__header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

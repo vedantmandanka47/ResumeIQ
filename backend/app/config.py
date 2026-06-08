@@ -17,6 +17,9 @@ load_dotenv(_BACKEND_DIR.parent / ".env")
 REQUIRED_ENV_VARS = (
     "DATABASE_URL",
     "GOOGLE_API_KEY",
+)
+
+OPTIONAL_INTEGRATION_ENV_VARS = (
     "MONGODB_MCP_SERVER_URL",
     "MONGODB_ATLAS_URI",
     "GOOGLE_DRIVE_CLIENT_ID",
@@ -28,15 +31,20 @@ REQUIRED_ENV_VARS = (
 def validate_env() -> None:
     """Fail startup with an explicit list of missing required settings."""
     missing = [name for name in REQUIRED_ENV_VARS if not os.environ.get(name)]
-    if not missing:
-        return
+    if missing:
+        for name in missing:
+            logger.critical("Missing required environment variable: %s", name)
+        raise RuntimeError(
+            "Server cannot start. Missing required env vars: "
+            f"{', '.join(missing)}. Copy backend/.env.example to backend/.env and fill in values."
+        )
 
-    for name in missing:
-        logger.critical("Missing required environment variable: %s", name)
-    raise RuntimeError(
-        "Server cannot start. Missing required env vars: "
-        f"{', '.join(missing)}. Copy .env.example to .env and fill in the values."
-    )
+    for name in OPTIONAL_INTEGRATION_ENV_VARS:
+        if not os.environ.get(name):
+            logger.warning(
+                "Optional integration not configured: %s (related API routes may return errors)",
+                name,
+            )
 
 
 @dataclass(frozen=True)
@@ -76,6 +84,18 @@ class Settings:
     app_version: str = field(default_factory=lambda: os.environ.get("APP_VERSION", "0.1.0"))
     max_file_size_mb: int = field(
         default_factory=lambda: int(os.environ.get("MAX_FILE_SIZE_MB", "5"))
+    )
+    generated_file_ttl_hours: int = field(
+        default_factory=lambda: int(os.environ.get("GENERATED_FILE_TTL_HOURS", "24"))
+    )
+    template_dir: str = field(
+        default_factory=lambda: os.environ.get("TEMPLATE_DIR", str(_BACKEND_DIR / "template"))
+    )
+    generated_dir: str = field(
+        default_factory=lambda: os.environ.get("GENERATED_DIR", str(_BACKEND_DIR / "generated"))
+    )
+    gemini_resume_model: str = field(
+        default_factory=lambda: os.environ.get("GEMINI_RESUME_MODEL", "gemini-2.5-flash")
     )
     allowed_origins: list[str] = field(
         default_factory=lambda: [

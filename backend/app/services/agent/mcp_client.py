@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import threading
 from datetime import datetime, timezone
 from typing import Any
 
@@ -67,37 +68,54 @@ async def _call_mcp(
         return await _pymongo_fallback(operation, payload)
 
 
-def _run_pymongo(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
-    import pymongo  # Optional direct driver is loaded only when fallback is needed.
+_pymongo_client_lock = threading.Lock()
+_pymongo_client: "pymongo.MongoClient | None" = None  # type: ignore[name-defined]
 
-    uri = os.environ.get("MONGODB_ATLAS_URI")
-    if not uri:
-        raise RuntimeError("MONGODB_ATLAS_URI is not configured")
 
-    client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=10000)
-    try:
-        database = client[_database_name()]
-        collection = database[_collection_name()]
-        if operation == "list_collections":
-            return {"collections": database.list_collection_names()}
-        if operation == "insert":
-            result = collection.insert_one(payload)
-            return {"inserted_id": str(result.inserted_id)}
-        if operation == "find":
-            documents = list(
-                collection.find(
-                    {"session_id": payload["session_id"]},
-                    sort=[("timestamp", pymongo.DESCENDING)],
+def _get_pymongo_client() -> "pymongo.MongoClient":
+    """Return the module-level MongoClient, creating it on first use."""
+    global _pymongo_client
+    if _pymongo_client is None:
+        with _pymongo_client_lock:
+            if _pymongo_client is None:
+                import pymongo
+                uri = os.environ.get("MONGODB_ATLAS_URI")
+                if not uri:
+                    raise RuntimeError("MONGODB_ATLAS_URI is not configured")
+                _pymongo_client = pymongo.MongoClient(
+                    uri,
+                    serverSelectionTimeoutMS=10_000,
+                    maxPoolSize=10,
                 )
+    return _pymongo_client
+
+
+def _run_pymongo(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
+    import pymongo
+
+    client = _get_pymongo_client()   # reuse pooled connection
+    database = client[_database_name()]
+    collection = database[_collection_name()]
+
+    if operation == "list_collections":
+        return {"collections": database.list_collection_names()}
+    if operation == "insert":
+        result = collection.insert_one(payload)
+        return {"inserted_id": str(result.inserted_id)}
+    if operation == "find":
+        documents = list(
+            collection.find(
+                {"session_id": payload["session_id"]},
+                sort=[("timestamp", pymongo.DESCENDING)],
             )
-            for document in documents:
-                document["_id"] = str(document["_id"])
-            return {"documents": documents}
-        if operation == "aggregate":
-            return {"documents": list(collection.aggregate(payload.get("pipeline", [])))}
-        return {"error": "UNKNOWN_OPERATION", "reason": f"Unknown MCP operation: {operation}"}
-    finally:
-        client.close()
+        )
+        for document in documents:
+            document["_id"] = str(document["_id"])
+        return {"documents": documents}
+    if operation == "aggregate":
+        return {"documents": list(collection.aggregate(payload.get("pipeline", [])))}
+    return {"error": "UNKNOWN_OPERATION", "reason": f"Unknown MCP operation: {operation}"}
+    # NOTE: do NOT close the client — it is reused across calls
 
 
 async def _pymongo_fallback(operation: str, payload: dict[str, Any]) -> dict[str, Any]:

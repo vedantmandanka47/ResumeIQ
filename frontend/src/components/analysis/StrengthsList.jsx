@@ -6,7 +6,11 @@ export default function StrengthsList({ strengths }) {
       <h3 className="label">Strengths</h3>
       <div className="strengths-list">
         {strengths.map((strength, idx) => (
-          <div key={idx} className="strength-item">
+          <div
+            key={idx}
+            className="strength-item stagger-item"
+            style={{ '--stagger-delay': `${idx * 60}ms` }}
+          >
             {strength}
           </div>
         ))}

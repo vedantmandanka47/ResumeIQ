@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAnalysis } from '../hooks/useAnalysis';
 
@@ -16,12 +16,23 @@ import BenchmarkChart from '../components/benchmark/BenchmarkChart';
 import Button from '../components/common/Button';
 import Spinner from '../components/common/Spinner';
 import ErrorBlock from '../components/common/ErrorBlock';
+import StepProgress from '../components/common/StepProgress';
 
 import './AnalysisPage.css';
+
+const ANALYSIS_STEPS = [
+  { key: 'extract',   label: 'Extracting resume content…'      },
+  { key: 'structure', label: 'Parsing resume structure…'        },
+  { key: 'ats',       label: 'Running ATS compatibility check…' },
+  { key: 'score',     label: 'Scoring 7 dimensions…'           },
+  { key: 'insights',  label: 'Generating actionable insights…'  },
+];
 
 export default function AnalysisPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const targetRole = location.state?.targetRole ?? null;
   const { 
     analysis, setAnalysis, 
     companyResult, setCompanyResult,
@@ -37,19 +48,37 @@ export default function AnalysisPage() {
   const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [benchmarkError, setBenchmarkError] = useState(null);
 
+  const [jdUrl, setJdUrl]           = useState('');
+  const [isJdAnalyzing, setIsJdAnalyzing] = useState(false);
+  const [jdError, setJdError]       = useState(null);
+
+  const handleJdAnalyze = async () => {
+    if (!jdUrl.trim()) return;
+    setIsJdAnalyzing(true);
+    setJdError(null);
+    try {
+      const data = await api.resume.analyzeJdUrl(sessionId, { job_url: jdUrl.trim() });
+      setAnalysis(data);  // refresh analysis with JD-calibrated scores
+    } catch (err) {
+      setJdError(err);
+    } finally {
+      setIsJdAnalyzing(false);
+    }
+  };
+
   const fetchAnalysis = useCallback(async () => {
     if (analysis) return; // Use cached context
     setIsLoading(true);
     setError(null);
     try {
-      const data = await api.resume.analyze(sessionId, { target_role: null });
+      const data = await api.resume.analyze(sessionId, { target_role: targetRole });
       setAnalysis(data);
     } catch (err) {
-      setError(err.message || 'Failed to analyze resume.');
+      setError(err);
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, analysis, setAnalysis]);
+  }, [sessionId, analysis, setAnalysis, targetRole]);
 
   useEffect(() => {
     fetchAnalysis();
@@ -62,7 +91,7 @@ export default function AnalysisPage() {
       const data = await api.resume.analyzeCompany(sessionId, { target_company: companyName });
       setCompanyResult(data);
     } catch (err) {
-      setCompanyError(err.message || 'Failed to research company.');
+      setCompanyError(err);
     } finally {
       setIsResearching(false);
     }
@@ -76,7 +105,7 @@ export default function AnalysisPage() {
       const data = await api.resume.benchmark();
       setBenchmarkResult(data);
     } catch (err) {
-      setBenchmarkError(err.message || 'Failed to generate benchmark.');
+      setBenchmarkError(err);
     } finally {
       setIsBenchmarking(false);
     }
@@ -85,8 +114,7 @@ export default function AnalysisPage() {
   if (isLoading) {
     return (
       <div className="page analysis-page loading-state">
-        <Spinner size={32} />
-        <p className="text-secondary mt-4">Analyzing your resume...</p>
+        <StepProgress steps={ANALYSIS_STEPS} intervalMs={2400} />
       </div>
     );
   }
@@ -94,7 +122,11 @@ export default function AnalysisPage() {
   if (error) {
     return (
       <div className="page analysis-page container">
-        <ErrorBlock message={error} onRetry={fetchAnalysis} />
+        <ErrorBlock
+          message={typeof error === 'string' ? error : error.message}
+          retryAfter={error?.retryAfter}
+          onRetry={fetchAnalysis}
+        />
       </div>
     );
   }
@@ -119,18 +151,52 @@ export default function AnalysisPage() {
         {/* Dimensions */}
         <div className="dimensions-grid">
           {analysis.dimensions.map((dim, idx) => (
-            <DimensionCard 
+            <div
               key={idx}
-              name={dim.name}
-              score={dim.score}
-              verdict={dim.verdict}
-              finding={dim.finding}
-            />
+              className="stagger-item"
+              style={{ '--stagger-delay': `${idx * 60}ms` }}
+            >
+              <DimensionCard 
+                name={dim.name}
+                score={dim.score}
+                verdict={dim.verdict}
+                finding={dim.finding}
+              />
+            </div>
           ))}
         </div>
 
         {/* Critical Fixes */}
         <CriticalFixes fixes={analysis.critical_fixes} />
+
+        {/* JD URL Analyzer Section */}
+        <div className="jd-url-section mt-12 pt-8 border-t">
+          <h3 className="label mb-4">Grade Against a Job Posting</h3>
+          <p className="text-secondary text-sm" style={{ marginBottom: 16 }}>
+            Paste a job posting URL to re-score your resume against exact JD requirements.
+          </p>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <input
+              className="input-base"
+              type="url"
+              placeholder="https://jobs.example.com/senior-engineer"
+              value={jdUrl}
+              onChange={(e) => setJdUrl(e.target.value)}
+              style={{ flex: 1 }}
+              disabled={isJdAnalyzing}
+            />
+            <Button onClick={handleJdAnalyze} loading={isJdAnalyzing} disabled={!jdUrl.trim()}>
+              Analyze →
+            </Button>
+          </div>
+          {jdError && (
+            <ErrorBlock
+              message={typeof jdError === 'string' ? jdError : jdError.message}
+              retryAfter={jdError?.retryAfter}
+              className="mt-4"
+            />
+          )}
+        </div>
 
         {/* Company Match Section */}
         <div className="company-section mt-12 pt-8 border-t">
@@ -150,7 +216,13 @@ export default function AnalysisPage() {
               </div>
             </div>
           )}
-          {companyError && <ErrorBlock message={companyError} className="mt-4" />}
+          {companyError && (
+            <ErrorBlock
+              message={typeof companyError === 'string' ? companyError : companyError.message}
+              retryAfter={companyError?.retryAfter}
+              className="mt-4"
+            />
+          )}
         </div>
 
         {/* Benchmark Section */}
@@ -159,12 +231,24 @@ export default function AnalysisPage() {
             <BenchmarkChart benchmark={benchmarkResult} userDimensions={analysis.dimensions} />
           </div>
         )}
-        {benchmarkError && <ErrorBlock message={benchmarkError} className="mt-4" />}
+        {benchmarkError && (
+          <ErrorBlock
+            message={typeof benchmarkError === 'string' ? benchmarkError : benchmarkError.message}
+            retryAfter={benchmarkError?.retryAfter}
+            className="mt-4"
+          />
+        )}
 
         {/* Action Row */}
         <div className="action-row mt-12 pt-8 border-t">
           <Button onClick={() => navigate(`/rewrite/${sessionId}`)}>Rewrite Resume &rarr;</Button>
           <Button variant="secondary" onClick={() => navigate(`/roadmap/${sessionId}`)}>Generate Roadmap &rarr;</Button>
+          <Button onClick={() => navigate(`/cover-letter/${sessionId}`)}>
+            ✦ Generate Cover Letter
+          </Button>
+          <Button variant="secondary" onClick={() => navigate(`/history/${sessionId}`)}>
+            View History
+          </Button>
           {!benchmarkResult && (
             <Button variant="secondary" onClick={handleBenchmark} loading={isBenchmarking}>
               Save &amp; Benchmark &rarr;

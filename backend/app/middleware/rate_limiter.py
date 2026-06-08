@@ -1,5 +1,7 @@
 """Per-IP request rate limiting."""
 
+import os
+
 from fastapi import Request
 from slowapi import Limiter
 
@@ -13,4 +15,12 @@ def get_real_ip(request: Request) -> str:
     return "unknown"
 
 
-limiter = Limiter(key_func=get_real_ip, default_limits=[])
+def _make_limiter() -> Limiter:
+    redis_uri = os.environ.get("REDIS_URL", "")
+    if redis_uri:
+        return Limiter(key_func=get_real_ip, storage_uri=redis_uri, default_limits=[])
+    # Fallback: in-memory (acceptable for single-worker dev/hackathon)
+    return Limiter(key_func=get_real_ip, default_limits=[])
+
+
+limiter = _make_limiter()

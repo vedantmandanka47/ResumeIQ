@@ -1,0 +1,53 @@
+/* frontend/src/pages/HistoryPage.css */
+.history-header { margin-bottom: 32px; }
+.history-header h1 { margin-bottom: 8px; }
+
+.history-empty {
+  padding: 48px 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-card {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 20px;
+  cursor: default;
+  transition: background var(--duration-fast) var(--ease);
+}
+.history-card:hover { background: var(--surface-1); }
+
+.history-card__meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-score {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.history-card__score {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.history-card__tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}

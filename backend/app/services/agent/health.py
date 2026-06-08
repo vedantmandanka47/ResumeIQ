@@ -11,7 +11,7 @@ async def check_llm_health() -> dict[str, str]:
     """Verify Gemini connectivity without raising."""
     result = await call_gemini(LLM_HEALTH_PROMPT, expect_json=False)
     if isinstance(result, str) and result.strip().upper() == "READY":
-        return {"llm": "ready"}
+        return {"llm": "connected"}
     if isinstance(result, dict):
         return {"llm": "error", "detail": str(result.get("reason", result))}
     return {"llm": "error", "detail": f"Unexpected response: {str(result)[:100]}"}
